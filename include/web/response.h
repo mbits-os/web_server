@@ -6,6 +6,8 @@
 #pragma once
 
 #include <web/headers.h>
+#include <web/stream.h>
+#include <exception>
 
 namespace web {
 #define HTTP_RESPONSE(X) \
@@ -62,14 +64,22 @@ namespace web {
 		web::headers m_headers;
 		web::status m_status = web::status::ok;
 		http_version_t m_version = http_version::http_none;
-		std::string m_contents;
-	public:
-		void clear()
+		bool m_headers_sent = false;
+		bool m_cache_content = true;
+		std::vector<char> m_contents;
+		web::stream* m_os;
+
+		void throw_if_sent(const std::string& name)
 		{
-			m_headers.clear();
-			m_status = web::status::ok;
-			m_version = http_version::http_none;
-			m_contents.clear();
+			if (!m_headers_sent)
+				return;
+			throw std::runtime_error(name + ": cannot call after sending the headers");
+		}
+
+		void send_headers();
+
+	public:
+		explicit response(web::stream* os) : m_os(os) {
 		}
 
 		bool has(const header_key& key) const {
@@ -77,35 +87,74 @@ namespace web {
 		}
 		void add(const header_key& key, const std::string& value)
 		{
+			throw_if_sent("add(header)");
 			m_headers.add(key, value);
 		}
 		void add(const header_key& key, std::string&& value)
 		{
+			throw_if_sent("add(header)");
 			m_headers.add(key, std::move(value));
 		}
 		void set(const header_key& key, const std::string& value)
 		{
+			throw_if_sent("set(header)");
 			m_headers.erase(key);
 			m_headers.add(key, value);
 		}
 		void set(const header_key& key, std::string&& value)
 		{
+			throw_if_sent("set(header)");
 			m_headers.erase(key);
 			m_headers.add(key, std::move(value));
 		}
 		void erase(const header_key& key)
 		{
+			throw_if_sent("erase(header)");
 			m_headers.erase(key);
 		}
 		const web::headers& headers() const { return m_headers; }
 
-		void status(web::status value) { m_status = value; }
+		void status(web::status value) { throw_if_sent("status"); m_status = value; }
 		web::status status() const { return m_status; }
-		void version(http_version_t value) { m_version = value; }
+		void version(http_version_t value) { throw_if_sent("version"); m_version = value; }
 		http_version_t version() const { return m_version; }
-		void contents(std::string&& value) { m_contents = std::move(value); }
-		const std::string& contents() const { return m_contents; }
+		void cache_contents(bool value) { throw_if_sent("cache_contents"); m_cache_content = value; }
 
-		static response stock_response(web::status st);
+		const std::string* find_front(const header_key& key) const
+		{
+			return m_headers.find_front(key);
+		}
+		const std::string* location() const { return find_front(header::Location); }
+
+		void write(const void* data, size_t length);
+		void print(const std::string& s)
+		{
+			write(s.c_str(), s.length());
+		}
+		void print(const char* s)
+		{
+			if (s)
+				write(s, strlen(s));
+		}
+
+		void stock_response(web::status st);
+		void finish();
+
+		struct write_exception { };
+	private:
+		void ll_write(const void* data, size_t length)
+		{
+			if (m_os->write(data, length) != length)
+				throw write_exception();
+		}
+		void ll_print(const std::string& s)
+		{
+			ll_write(s.c_str(), s.length());
+		}
+		void ll_print(const char* s)
+		{
+			if (s)
+				ll_write(s, strlen(s));
+		}
 	};
 }

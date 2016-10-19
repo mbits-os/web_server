@@ -8,14 +8,20 @@
 
 namespace web {
 	enum class parsing {
-		reading,
 		separator,
 		error
 	};
 
+	struct data_src {
+		virtual ~data_src() = default;
+		virtual size_t get(char* data, size_t s) = 0;
+	};
+
 	class field_parser {
 	public:
-		std::pair<size_t, parsing> append(const char* data, size_t length);
+		static parsing read_line(data_src& src, std::vector<char>& dst);
+
+		parsing decode(data_src&);
 		bool rearrange(headers& dst);
 	private:
 		class span {
@@ -48,37 +54,29 @@ namespace web {
 	template <typename Final>
 	class http_parser_base {
 	public:
-		std::pair<size_t, parsing> append(const char* data, size_t length);
+		parsing decode(data_src&);
 	protected:
 		http_version_t m_proto;
 		field_parser m_fields;
-	private:
-		bool m_needs_first_line = true;
 	};
 
 	template <typename Final>
-	inline std::pair<size_t, parsing> http_parser_base<Final>::append(const char* data, size_t length)
+	inline parsing http_parser_base<Final>::decode(data_src& src)
 	{
-		if (m_needs_first_line) {
-			auto& thiz = static_cast<Final&>(*this);
-			auto ret = thiz.first_line(data, length);
+		auto& thiz = static_cast<Final&>(*this);
+		auto ret = thiz.first_line(src);
 
-			if (std::get<parsing>(ret) != parsing::separator)
-				return ret;
-
-			m_needs_first_line = false;
-			auto offset = std::get<size_t>(ret);
-			ret = m_fields.append(data + offset, length - offset);
-			std::get<size_t>(ret) += offset;
+		if (ret != parsing::separator)
 			return ret;
-		}
-		return m_fields.append(data, length);
+
+		return m_fields.decode(src);
 	}
 
 	class request;
+
 	class request_parser : public http_parser_base<request_parser> {
 		friend class http_parser_base<request_parser>;
-		std::pair<size_t, parsing> first_line(const char* data, size_t length);
+		parsing first_line(data_src&);
 	public:
 		bool extract(bool secure, request& req, short unsigned port, const std::string& host_1_0 = { });
 	private:

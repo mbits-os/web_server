@@ -17,12 +17,13 @@ namespace web {
 #ifdef HTTP_USE_ASIO
 		asio::service m_svc;
 #endif
+		void handle_connection(request& req, response& resp);
 	public:
 		server();
 		void set_server(const std::string&);
 		void set_routes(router& router);
 		bool listen(short port);
 		void run();
-		void on_connection(request& req, response& resp);
+		void on_connection(stream& io, bool secure);
 	};
 };

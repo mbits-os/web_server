@@ -31,11 +31,6 @@ namespace web {
 			return end;
 		}
 
-		inline size_t report_read(size_t prev, size_t position)
-		{
-			return (position > prev) ? prev - position : 0;
-		}
-
 		std::string printable(std::string&& s)
 		{
 			for (auto& c : s)
@@ -157,54 +152,72 @@ namespace web {
 #undef TEST_CHAR
 	}
 
-	std::pair<size_t, parsing> field_parser::append(const char* data, size_t length)
+	parsing field_parser::read_line(data_src& src, std::vector<char>& dst)
 	{
-		if (!length)
-			return { 0, parsing::reading };
-
-		auto prev = m_contents.size();
-		m_contents.insert(m_contents.end(), data, data + length);
-
-		auto begin = std::begin(m_contents);
-		auto cur = std::next(begin, m_last_line_end);
-		auto end = std::end(m_contents);
-
-		while (cur != end) {
-			auto it = std::find(cur, end, '\r');
-			if (it == end) break;
-			if (std::next(it) == end) break;
-			if (*std::next(it) != '\n') // mid-line \r? - check with RFC if ignore, or error
-				return { report_read(prev, std::distance(begin, it)), parsing::error };
-
-			if (it == cur) { // empty line
-				//if (!rearrange(dst))
-				//	return { report_read(prev, std::distance(begin, it)), parsing::error };
-				return { report_read(prev, std::distance(begin, it)), parsing::separator };
+		bool slashr = false;
+		while (true) {
+			char c = 0;
+			if (!src.get(&c, 1))
+				return parsing::error;
+			dst.push_back(c);
+			switch (c) {
+			case '\r':
+				slashr = true; break;
+			case '\n':
+				if (slashr)
+					return parsing::separator;
+				// fallthrough
+			default:
+				slashr = false;
 			}
-
-			std::advance(it, 2);
-			if (isspace((uint8_t)*cur)) {
-				if (m_field_list.empty())
-					return { report_read(prev, std::distance(begin, it)), parsing::error };
-
-				m_last_line_end = std::distance(begin, it);
-				auto& fld = std::get<1>(m_field_list.back());
-				fld = span(fld.offset(), m_last_line_end - fld.offset());
-			} else {
-				auto colon = std::find(cur, it, ':');
-				if (colon == it) // no colon in field's first line
-					return { report_read(prev, std::distance(begin, it)), parsing::error };
-
-				m_last_line_end = std::distance(begin, it);
-				m_field_list.emplace_back(
-					span(std::distance(begin, cur), std::distance(cur, colon)),
-					span(std::distance(begin, colon) + 1, std::distance(colon, it) - 1)
-				);
-			}
-
-			cur = it;
 		}
-		return { length, parsing::reading };
+	}
+
+	parsing field_parser::decode(data_src& src)
+	{
+		while (true) { // will return on error or separator
+			auto ret = read_line(src, m_contents);
+			if (ret != parsing::separator)
+				return ret;
+
+			auto begin = std::begin(m_contents);
+			auto cur = std::next(begin, m_last_line_end);
+			auto end = std::end(m_contents);
+
+			while (cur != end) {
+				auto it = std::find(cur, end, '\r');
+				if (it == end) break;
+				if (std::next(it) == end) break;
+				if (*std::next(it) != '\n') // mid-line \r? - check with RFC if ignore, or error
+					return parsing::error;
+
+				if (it == cur) { // empty line
+					return parsing::separator;
+				}
+
+				std::advance(it, 2);
+				if (isspace((uint8_t)*cur)) {
+					if (m_field_list.empty())
+						return parsing::error;
+
+					m_last_line_end = std::distance(begin, it);
+					auto& fld = std::get<1>(m_field_list.back());
+					fld = span(fld.offset(), m_last_line_end - fld.offset());
+				} else {
+					auto colon = std::find(cur, it, ':');
+					if (colon == it) // no colon in field's first line
+						return parsing::error;
+
+					m_last_line_end = std::distance(begin, it);
+					m_field_list.emplace_back(
+						span(std::distance(begin, cur), std::distance(cur, colon)),
+						span(std::distance(begin, colon) + 1, std::distance(colon, it) - 1)
+					);
+				}
+
+				cur = it;
+			}
+		}
 	}
 
 	bool field_parser::rearrange(headers& dst)
@@ -225,55 +238,57 @@ namespace web {
 		return true;
 	}
 
-	std::pair<size_t, parsing> request_parser::first_line(const char* data, size_t length)
+	auto find(std::vector<char>& line, char c)
+	{
+		return std::find(begin(line), end(line), c);
+	}
+
+	auto rfind(std::vector<char>& line, char c)
+	{
+		auto it__ = std::find(line.rbegin(), line.rend(), c);
+		if (it__ == line.rend())
+			return line.end();
+		else
+			return --it__.base();
+	}
+
+	parsing request_parser::first_line(data_src& src)
 	{
 		// Method SP Request-URI SP HTTP-Verson CRLF
-		auto cur = data;
-		auto end = data + length;
+		std::vector<char> line;
+		auto ret = field_parser::read_line(src, line);
+		if (ret != parsing::separator)
+			return ret;
+
+		auto cur = line.data();
+		auto end = line.data() + line.size();
 		size_t len = 1;
 
-		if (m_resource.empty() || m_resource.back() != '\r') {
-			auto it = std::find(cur, end, '\r');
-			if (it == end || it == (end - 1)) {
-				m_resource.append(data, length);
-				return { length, parsing::reading };
-			}
-			if (it[1] != '\n')
-				return { (it - data), parsing::error };
-			m_resource.append(data, it + 1);
-			len += it - data + 1;
-		} else if (!length)
-			return { 0, parsing::reading };
-		else if (*data != '\n')
-			return { 0, parsing::error };
+		line.pop_back(); // LF
+		line.pop_back(); // CR
 
-		m_resource.pop_back();
+		auto proto_it = rfind(line, ' ');
+		if (proto_it == line.end())
+			return parsing::error;
+		auto method_it = find(line, ' ');
+		if (proto_it == method_it)
+			return parsing::error;
 
-		auto proto_pos = m_resource.find_last_of(' ');
-		if (proto_pos == std::string::npos)
-			return { len, parsing::error };
-		auto method_pos = m_resource.find_first_of(' ');
-		if (proto_pos == method_pos)
-			return { len, parsing::error };
+		if (!parse_proto(std::next(proto_it), line.end(), m_proto))
+			return parsing::error;
 
-		if (!parse_proto(
-			std::next(m_resource.begin(), proto_pos + 1),
-			m_resource.end(), m_proto)) {
-			return { len, parsing::error };
-		}
+		m_method.assign(line.begin(), method_it);
 
-		m_method = m_resource.substr(0, method_pos);
+		while (method_it != proto_it && *method_it == ' ')
+			++method_it;
+		while (method_it != proto_it && *std::prev(proto_it) == ' ')
+			--proto_it;
 
-		while (method_pos < proto_pos && m_resource[method_pos] == ' ')
-			++method_pos;
-		while (method_pos < proto_pos && m_resource[proto_pos - 1] == ' ')
-			--proto_pos;
+		if (method_it == proto_it)
+			return parsing::error;
 
-		if (method_pos == proto_pos)
-			return { len, parsing::error };
-
-		m_resource = m_resource.substr(method_pos, proto_pos - method_pos);
-		return { len, parsing::separator };
+		m_resource.assign(method_it, proto_it);
+		return parsing::separator;
 	}
 
 	bool request_parser::extract(bool secure, request& req, short unsigned port, const std::string& host_1_0)
