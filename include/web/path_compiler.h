@@ -76,12 +76,12 @@ namespace web {
 		std::string value;
 	};
 
-	struct matcher {
+	struct matcher_type {
 		std::regex regex;
 		const std::vector<key_type> keys;
 
-		static matcher make(description&& tokens, int options = COMPILE_DEFAULT);
-		static matcher make(const std::string& mask, int options = COMPILE_DEFAULT);
+		static matcher_type make(description&& tokens, int options = COMPILE_DEFAULT);
+		static matcher_type make(const std::string& mask, int options = COMPILE_DEFAULT);
 
 		bool matches(const std::string& route, std::vector<param>& params) const;
 	};

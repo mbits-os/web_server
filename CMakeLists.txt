@@ -23,6 +23,7 @@ SET(SRCS
     include/web/cstring.h
     include/web/delegate.h
     include/web/headers.h
+    include/web/middleware.h
     include/web/path_compiler.h
     include/web/request.h
     include/web/request_parser.h

@@ -225,7 +225,7 @@ namespace web {
 		return make(parse_matcher(mask), options);
 	}
 
-	matcher matcher::make(description&& tokens, int options)
+	matcher_type matcher_type::make(description&& tokens, int options)
 	{
 		auto flags = std::regex_constants::ECMAScript;
 		if ((options & COMPILE_SENSITIVE) != COMPILE_SENSITIVE)
@@ -236,12 +236,12 @@ namespace web {
 		return { std::regex { tokens.route, flags }, std::move(tokens.keys) };
 	}
 
-	matcher matcher::make(const std::string& mask, int options)
+	matcher_type matcher_type::make(const std::string& mask, int options)
 	{
 		return make(description::make(mask, options), options);
 	}
 
-	bool matcher::matches(const std::string& route, std::vector<param>& params) const
+	bool matcher_type::matches(const std::string& route, std::vector<param>& params) const
 	{
 		std::smatch match;
 		auto matched = std::regex_match(route, match, regex);

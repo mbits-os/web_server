@@ -10,6 +10,10 @@ namespace web {
 	{
 		m_routes = router.compile();
 
+		for (auto& pair : m_routes.filters()) {
+			printf("[FILTER] %s\n", pair.first.c_str());
+		}
+
 		for (auto& pair : m_routes.routes()) {
 			const char* method = nullptr;
 			switch (pair.first) {
@@ -34,9 +38,33 @@ namespace web {
 
 	}
 
+	inline bool starts_with(const std::string& value, const std::string& prefix)
+	{
+		if (value.length() < prefix.length())
+			return false;
+
+		if (value.compare(0, prefix.length(), prefix) != 0)
+			return false;
+
+		if (value.length() > prefix.length()) {
+			if (!prefix.empty() && prefix[prefix.length() - 1] == '/')
+				return true;
+			return value[prefix.length()] == '/';
+		}
+		return true;
+	}
+
 	void server::on_connection(request& req, response& resp)
 	{
 		auto resource = req.uri().path().str();
+
+		for (auto& pair : m_routes.filters()) {
+			if (starts_with(resource, pair.first)) {
+				auto res = pair.second->handle(req, resp);
+				if (res == middleware::finished)
+					return;
+			}
+		}
 
 		std::vector<web::param> params;
 		auto handler = req.method() == method::other
