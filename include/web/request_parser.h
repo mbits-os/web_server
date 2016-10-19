@@ -80,7 +80,7 @@ namespace web {
 		friend class http_parser_base<request_parser>;
 		std::pair<size_t, parsing> first_line(const char* data, size_t length);
 	public:
-		bool extract(request& req);
+		bool extract(bool secure, request& req, short unsigned port, const std::string& host_1_0 = { });
 	private:
 		std::string m_method;
 		std::string m_resource;

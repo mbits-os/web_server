@@ -63,7 +63,7 @@ namespace web { namespace asio {
 		}
 
 		request req;
-		if (!m_parser.extract(req))
+		if (!m_parser.extract(false, req, m_socket.local_endpoint().port(), ip::host_name()))
 			m_response = response::stock_response(status::bad_request);
 		else
 			m_connection_manager.on_connection(req, m_response);

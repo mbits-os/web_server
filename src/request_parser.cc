@@ -276,7 +276,7 @@ namespace web {
 		return { len, parsing::separator };
 	}
 
-	bool request_parser::extract(request& req)
+	bool request_parser::extract(bool secure, request& req, short unsigned port, const std::string& host_1_0)
 	{
 		auto m = make_method(m_method);
 		if (m == method::other)
@@ -284,8 +284,28 @@ namespace web {
 		else
 			m_method.clear(), req.m_method = m;
 
-		req.m_resource = std::move(m_resource);
+		if (!m_fields.rearrange(req.m_headers))
+			return false;
+
+		std::string uri { "http" };
+		if (secure)
+			uri.push_back('s');
+		uri.append("://");
+		if (m_proto.M_ver() < 1 || (m_proto.M_ver() == 1 && m_proto.m_ver() == 0)) {
+			uri.append(host_1_0);
+		} else if (m_proto == http_version::http_1_1) {
+			auto host = req.host();
+			if (!host)
+				return false;
+			uri.append(*host);
+		}
+		auto host = web::uri { uri };
+		auto auth = web::uri::auth_builder::parse(host.authority());
+		auth.port = std::to_string(port);
+		host.authority(auth.string(web::uri::with_pass));
+
+		req.m_uri = web::uri::canonical(m_resource, host, web::uri::with_pass);
 		req.m_version = m_proto;
-		return m_fields.rearrange(req.m_headers);
+		return true;
 	}
 }

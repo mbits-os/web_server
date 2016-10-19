@@ -36,10 +36,12 @@ namespace web {
 
 	void server::on_connection(request& req, response& resp)
 	{
+		auto resource = req.uri().path().str();
+
 		std::vector<web::param> params;
 		auto handler = req.method() == method::other
-			? m_routes.find(req.smethod(), req.resource(), params)
-			: m_routes.find(req.method(), req.resource(), params);
+			? m_routes.find(req.smethod(), resource, params)
+			: m_routes.find(req.method(), resource, params);
 
 		if (!handler) {
 			resp = response::stock_response(status::not_found);
@@ -48,19 +50,21 @@ namespace web {
 
 		auto& mask = handler->mask();
 		auto mask_has_slash = !mask.empty() && mask.back() == '/';
-		auto test_has_slash = req.resource()[req.resource().length() - 1] == '/';
+		auto test_has_slash = resource[resource.length() - 1] == '/';
 
 		if (mask_has_slash != test_has_slash) {
 			if (mask_has_slash) {
+				auto uri = req.uri();
+				uri.path(resource + "/");
 				resp.status(status::moved_permanently);
-				resp.add(header::Location, req.resource() + "/");
+				resp.add(header::Location, uri.string() + "/");
 				std::string content {
 					"<html><head><title>Moved Permanently</title></head>"
 					"<body><h1>Moved Permanently</h1><p>Seee <a href='"
 				};
-				content.append(req.resource());
+				content.append(uri.string());
 				content.append("/'>");
-				content.append(req.resource());
+				content.append(uri.string(web::uri::ui_safe));
 				content.append("/</a></p></body></html>");
 				resp.contents(std::move(content));
 			} else
@@ -68,20 +72,7 @@ namespace web {
 			return;
 		}
 
-#if 0
-		std::string response = "<html><head><title>Simple test</title></head><body><ul>";
-		for (auto& param : params) {
-			if (param.sname.empty())
-				response += "<li><b>#" + std::to_string(param.nname);
-			else
-				response += "<li><b>" + param.sname;
-			response += "</b>: " + param.value + "</li>";
-		}
-		response += "</li></body></html>";
-		resp.contents(std::move(response));
-#else
 		handler->call(req, resp);
-#endif
 	}
 
 }

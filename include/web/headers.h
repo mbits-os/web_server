@@ -116,8 +116,19 @@ namespace web {
 
 namespace std {
 	template <>
+	struct hash<web::header> : public unary_function<web::header, size_t> {
+		using int_t = typename std::underlying_type<web::header>::type;
+		size_t operator()(web::header key) const noexcept(noexcept(hash<int_t>{}(0)))
+		{
+			return hash<int_t>{}((int_t)key);
+		}
+	};
+	template <>
 	struct hash<web::header_key> : public unary_function<const web::header_key&, size_t> {
-		size_t operator()(const web::header_key& key) const
+		size_t operator()(const web::header_key& key) const noexcept(
+			noexcept(hash<web::header>{}(web::header::Accept)) &&
+			noexcept(hash<std::string>{}(std::string { }))
+			)
 		{
 			if (key == web::header::extension_header)
 				return hash<web::header>{}(key.value());
@@ -168,20 +179,27 @@ namespace web {
 	namespace http_version {
 		struct version_t {
 			version_t() = default;
-			constexpr version_t(uint16_t major, uint16_t minor)
-				: version { ((uint32_t)major << 16) | (uint32_t)minor }
+			constexpr version_t(uint16_t M_ver, uint16_t m_ver)
+				: version { ((uint32_t)M_ver << 16) | (uint32_t)m_ver }
 			{
 			}
 
-			constexpr inline int16_t major() const
+			constexpr inline int16_t M_ver() const
 			{
 				return (version >> 16) & 0xFFFF;
 			}
 
-			constexpr inline int16_t minor() const
+			constexpr inline int16_t m_ver() const
 			{
 				return (version) & 0xFFFF;
 			}
+
+			bool operator==(const version_t& rhs) const { return version == rhs.version; }
+			bool operator!=(const version_t& rhs) const { return version != rhs.version; }
+			bool operator>=(const version_t& rhs) const { return version >= rhs.version; }
+			bool operator<=(const version_t& rhs) const { return version <= rhs.version; }
+			bool operator>(const version_t& rhs) const { return version > rhs.version; }
+			bool operator<(const version_t& rhs) const { return version < rhs.version; }
 		private:
 			uint32_t version = 0;
 		};

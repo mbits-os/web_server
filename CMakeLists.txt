@@ -17,8 +17,10 @@ SET(SRCS
     src/response.cc
     src/router.cc
     src/server_common.cc
+    src/uri.cc
 
     include/web/bits/asio.h
+    include/web/cstring.h
     include/web/delegate.h
     include/web/headers.h
     include/web/path_compiler.h
@@ -28,6 +30,8 @@ SET(SRCS
     include/web/route.h
     include/web/router.h
     include/web/server.h
+    include/web/stream.h
+    include/web/uri.h
 )
 
 INCLUDE(FindPkgConfig)
