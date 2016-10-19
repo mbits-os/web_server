@@ -116,9 +116,9 @@ namespace web {
 			auto local = std::move(web::uri::auth_builder::parse(dg.uri.authority()).host);
 
 			std::lock_guard<std::mutex> lck { io_mtx };
-			fprintf(stderr, "[%s] %s \"%s%s\" HTTP/%u.%u -- %u\n",
-				remote.c_str(),
-				//remote.address().to_string().c_str(), remote.port(),
+			std::ostringstream os; os << std::this_thread::get_id();
+			fprintf(stderr, "(%s) [%s] %s \"%s%s\" HTTP/%u.%u -- %u\n",
+				os.str().c_str(), remote.c_str(),
 				method, dg.uri.path().str().c_str(), dg.uri.query().str().c_str(), dg.ver.M_ver(), dg.ver.m_ver(),
 				(unsigned)dg.st);
 		}
@@ -145,13 +145,14 @@ namespace web {
 				break;
 			}
 
-			response resp { &io };
 			request req;
+			response resp { &io, &req };
 			auto local = io.local_endpoint();
 			auto remote = io.remote_endpoint();
-			reporter rep(remote.host + std::to_string(remote.port), req, resp);
+			reporter rep(remote.host + ":" + std::to_string(remote.port), req, resp);
 			if (!parser.extract(secure, req, local.port, local.host)) {
 				try {
+					resp.version(http_version::http_1_1);
 					resp.stock_response(status::bad_request);
 				} catch (response::write_exception&) {
 					// ignore, we are breaking anyway
@@ -161,6 +162,7 @@ namespace web {
 			}
 
 			try {
+				resp.version(req.version());
 				handle_connection(req, resp);
 				resp.finish();
 			} catch (response::write_exception&) {

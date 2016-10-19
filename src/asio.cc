@@ -4,162 +4,130 @@
  */
 
 #include <web/server.h>
-#include <web/stream.h>
 #include <mutex>
 #include <condition_variable>
 
 namespace web { namespace asio {
 
+	void connection::asio_stream::write_data(RX& rx)
+	{
+		async_write(m_socket, buffer(rx.data, rx.transferred), [&, this](error_code ec, std::size_t bytes_transferred) {
+			if (ec) {
+				rx.status = failed;
+			} else {
+				rx.transferred = bytes_transferred;
+				rx.status = succeeded;
+			}
+			m_cv.notify_one();
+		});
+	}
+
+	void connection::asio_stream::read_data(TX& tx)
+	{
+		m_socket.async_read_some(buffer(tx.data), [&, this](error_code ec, std::size_t bytes_transferred) {
+			if (ec) {
+				tx.status = failed;
+			} else {
+				tx.transferred = bytes_transferred;
+				tx.status = succeeded;
+			}
+			m_cv.notify_one();
+		});
+	}
+
+	void connection::asio_stream::shutdown(stream*)
+	{
+		if (socket_aborting)
+			return;
+		auto shared = m_parent->shared_from_this();
+		m_socket.get_io_service().post([this, shared] { m_parent->shutdown(); });
+	}
+
+	bool connection::asio_stream::overflow(stream* src, const void* data, size_t size)
+	{
+		std::unique_lock<std::mutex> lock { m_mtx };
+
+		RX rx;
+		rx.data = data;
+		rx.transferred = size;
+
+		auto shared = m_parent->shared_from_this();
+		m_socket.get_io_service().post([&, this, shared] { write_data(rx); });
+
+		m_cv.wait(lock, [&] { return rx.status != running; });
+		if (rx.status == succeeded) {
+			src->flushed_write();
+			return rx.transferred == size;
+		} else {
+			return false;
+		}
+	}
+
+	bool connection::asio_stream::underflow(stream* src)
+	{
+		std::unique_lock<std::mutex> lock { m_mtx };
+
+		TX tx;
+		auto shared = m_parent->shared_from_this();
+		m_socket.get_io_service().post([&, this, shared] { read_data(tx); });
+
+		m_cv.wait(lock, [&] { return tx.status != running; });
+		if (tx.status == succeeded) {
+			src->refill_read(tx.data.data(), tx.transferred);
+			return !!tx.transferred;
+		} else {
+			return false;
+		}
+	}
+
+	bool connection::asio_stream::is_open(stream*)
+	{
+		return m_socket.is_open();
+	}
+
+	endpoint_t connection::asio_stream::remote_endpoint(stream*)
+	{
+		auto ep = m_socket.remote_endpoint();
+		return { ep.address().to_string(), ep.port() };
+	}
+
+	endpoint_t connection::asio_stream::local_endpoint(stream*)
+	{
+		return { ip::host_name(), m_socket.local_endpoint().port() };
+	}
+
+	void connection::asio_stream::close()
+	{
+		socket_aborting = true;
+		m_socket.close();
+	}
+
 	connection::connection(io_service& io, connection_manager& manager)
-		: m_socket { io }
+		: m_stream { io, this }
 		, m_connection_manager { manager }
 	{
 	}
 
 	void connection::start()
 	{
-		m_th = std::thread([this] { handle(false); });
+		auto shared = shared_from_this();
+		m_th = std::thread([this, shared] { handle(false); });
 	}
-
-	class asio_stream : public stream::impl {
-		ip::tcp::socket& m_socket;
-		connection* m_parent;
-		std::mutex m_mtx;
-		std::condition_variable m_cv;
-		bool socket_aborting = false;
-
-		enum {
-			succeeded,
-			aborting,
-			failed,
-			running
-		};
-
-		struct RX {
-			const void* data = nullptr;
-			size_t transferred = 0;
-			int status = running;
-		};
-
-		struct TX {
-			std::array<char, 8192> data;
-			size_t transferred = 0;
-			int status = running;
-		};
-
-		void write_data(RX& rx) {
-			async_write(m_socket, buffer(rx.data, rx.transferred), [&, this](error_code ec, std::size_t bytes_transferred) {
-				if (ec) {
-					if (ec != boost::asio::error::operation_aborted)
-						rx.status = aborting;
-					else
-						rx.status = failed;
-				} else {
-					rx.transferred = bytes_transferred;
-					rx.status = succeeded;
-				}
-				m_cv.notify_one();
-			});
-		}
-
-		void read_data(TX& tx)
-		{
-			m_socket.async_read_some(buffer(tx.data), [&, this](error_code ec, std::size_t bytes_transferred) {
-				if (ec) {
-					if (ec != boost::asio::error::operation_aborted)
-						tx.status = aborting;
-					else
-						tx.status = failed;
-				} else {
-					tx.transferred = bytes_transferred;
-					tx.status = succeeded;
-				}
-				m_cv.notify_one();
-				// m_connection_manager.stop(shared_from_this());
-			});
-		}
-	public:
-		asio_stream(ip::tcp::socket& socket, connection* parent)
-			: m_socket { socket }
-			, m_parent { parent }
-		{
-		}
-
-		void shutdown(stream*)
-		{
-			if (socket_aborting)
-				return;
-			m_parent->shutdown();
-		}
-
-		bool overflow(stream* src, const void* data, size_t size) override
-		{
-			std::unique_lock<std::mutex> lock { m_mtx };
-
-			RX rx;
-			rx.data = data;
-			rx.transferred = size;
-
-			auto& service = m_socket.get_io_service();
-			service.dispatch([&, this] { write_data(rx); });
-
-			m_cv.wait(lock, [&] { return rx.status != running; });
-			if (rx.status == succeeded) {
-				src->flushed_write();
-				return rx.transferred == size;
-			} else {
-				socket_aborting = (rx.status == aborting);
-				return false;
-			}
-		}
-
-		bool underflow(stream* src) override
-		{
-			std::unique_lock<std::mutex> lock { m_mtx };
-
-			TX tx;
-			auto& service = m_socket.get_io_service();
-			service.dispatch([&, this] { read_data(tx); });
-
-			m_cv.wait(lock, [&] { return tx.status != running; });
-			if (tx.status == succeeded) {
-				src->refill_read(tx.data.data(), tx.transferred);
-				return !!tx.transferred;
-			} else {
-				socket_aborting = (tx.status == aborting);
-				return false;
-			}
-		}
-
-		bool is_open(stream*) override
-		{
-			return m_socket.is_open();
-		}
-
-		endpoint_t remote_endpoint(stream*) override
-		{
-			auto ep = m_socket.remote_endpoint();
-			return { ep.address().to_string(), ep.port() };
-		}
-
-		endpoint_t local_endpoint(stream*) override
-		{
-			return { ip::host_name(), m_socket.local_endpoint().port() };
-		}
-	};
 
 	void connection::handle(bool secure)
 	{
-		asio_stream asio_io { m_socket, this };
-		stream io { asio_io };
+		stream io { m_stream };
 		m_connection_manager.on_connection(io, secure);
 	}
 
 	void connection::stop()
 	{
-		m_socket.close();
-		if (m_th.joinable())
-			m_th.join();
+		auto shared = shared_from_this();
+		m_stream.close();
+		m_stream.socket().get_io_service().post([this, shared] {
+			if (m_th.joinable())
+				m_th.join();
+		});
 	}
 
 	void connection::shutdown()
@@ -183,8 +151,9 @@ namespace web { namespace asio {
 	{
 		std::unordered_set<std::shared_ptr<connection>> local;
 		std::swap(local, m_connections);
-		for (auto& c : local)
+		for (auto& c : local) {
 			c->stop();
+		}
 	}
 
 	service::service(delegate<void(stream&, bool)> onconnection)
@@ -202,6 +171,7 @@ namespace web { namespace asio {
 			// The server is stopped by cancelling all outstanding asynchronous
 			// operations. Once all operations have finished the io_service::run()
 			// call will exit.
+			printf("\nShutting the server down\n");
 			m_acceptor.close();
 			m_manager.stop_all();
 		});
@@ -230,20 +200,6 @@ namespace web { namespace asio {
 		port = m_acceptor.local_endpoint().port();
 		std::string iface = ip::host_name();
 
-#if 0
-		try {
-			for (auto entry : mk_stream(resolver.resolve({ ip::host_name(), "" }))) {
-				auto ep = entry.endpoint();
-				if (ep.address().is_v4()) {
-					iface = ep.address().to_string();
-					break;
-				}
-			}
-		} catch (std::exception&) {
-			iface = "127.0.0.1";
-		}
-#endif
-
 		printf("\nStarting server at http://%s:%u/\n", iface.c_str(), port);
 		printf("Quit the server with ^C.\n\n");
 		next_accept();
@@ -253,14 +209,14 @@ namespace web { namespace asio {
 	{
 		auto conn = std::make_shared<connection>(m_service, m_manager);
 		m_acceptor.async_accept(conn->socket(), [this, conn](error_code ec) {
-			if (!m_acceptor.is_open())
+			if (!m_acceptor.is_open()) {
 				return;
+			}
 
-			if (ec)
+			if (ec) {
 				return; // TODO: report error...
+			}
 
-			auto endpoint = conn->socket().remote_endpoint();
-			// printf("Connected to %s:%u\n", endpoint.address().to_string().c_str(), endpoint.port());
 			m_manager.start(conn);
 
 			next_accept();

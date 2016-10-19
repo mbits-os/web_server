@@ -8,6 +8,7 @@
 #include <array>
 #include <vector>
 #include <cassert>
+#include <cstring>
 
 namespace web {
 	template <typename Final, size_t BufferLength = 512>
@@ -19,7 +20,7 @@ namespace web {
 		{
 			assert((m_write_ptr + size) <= BufferLength);
 
-			memcpy(m_output.data() + m_write_ptr, data, size);
+			std::memcpy(m_output.data() + m_write_ptr, data, size);
 			m_write_ptr += size;
 
 			if (m_write_ptr == BufferLength)

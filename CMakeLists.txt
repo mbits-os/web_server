@@ -11,6 +11,7 @@ SET(VERSION 0.0.1)
 SET(SRCS
     src/asio.cc
     src/headers.cc
+    src/mime_type.cc
     src/path_compiler.cc
     src/request.cc
     src/request_parser.cc
@@ -24,6 +25,7 @@ SET(SRCS
     include/web/delegate.h
     include/web/headers.h
     include/web/middleware.h
+    include/web/mime_type.h
     include/web/path_compiler.h
     include/web/request.h
     include/web/request_parser.h

@@ -8,6 +8,7 @@
 #include <web/headers.h>
 #include <web/stream.h>
 #include <exception>
+#include <cstring>
 
 namespace web {
 #define HTTP_RESPONSE(X) \
@@ -60,6 +61,7 @@ namespace web {
 #undef ENUM_VALUE
 	const char* status_name(status st);
 
+	class request;
 	class response {
 		web::headers m_headers;
 		web::status m_status = web::status::ok;
@@ -68,6 +70,7 @@ namespace web {
 		bool m_cache_content = true;
 		std::vector<char> m_contents;
 		web::stream* m_os;
+		request* m_req_ref;
 
 		void throw_if_sent(const std::string& name)
 		{
@@ -79,7 +82,7 @@ namespace web {
 		void send_headers();
 
 	public:
-		explicit response(web::stream* os) : m_os(os) {
+		explicit response(web::stream* os, request* req_ref) : m_os(os), m_req_ref(req_ref) {
 		}
 
 		bool has(const header_key& key) const {
@@ -126,6 +129,7 @@ namespace web {
 		}
 		const std::string* location() const { return find_front(header::Location); }
 
+		void send_file(const std::string& path);
 		void write(const void* data, size_t length);
 		void print(const std::string& s)
 		{
@@ -134,7 +138,7 @@ namespace web {
 		void print(const char* s)
 		{
 			if (s)
-				write(s, strlen(s));
+				write(s, std::strlen(s));
 		}
 
 		void stock_response(web::status st);
@@ -154,7 +158,7 @@ namespace web {
 		void ll_print(const char* s)
 		{
 			if (s)
-				ll_write(s, strlen(s));
+				ll_write(s, std::strlen(s));
 		}
 	};
 }

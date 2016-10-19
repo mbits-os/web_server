@@ -10,8 +10,11 @@
 #include <web/delegate.h>
 #include <web/request.h>
 #include <web/response.h>
+#include <web/stream.h>
 #include <web/request_parser.h>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 
 namespace web { namespace asio {
 	using namespace boost::asio;
@@ -19,7 +22,54 @@ namespace web { namespace asio {
 
 	class connection_manager;
 	class connection : public std::enable_shared_from_this<connection> {
-		ip::tcp::socket m_socket;
+		class asio_stream : public stream::impl {
+			ip::tcp::socket m_socket;
+			connection* m_parent;
+			std::mutex m_mtx;
+			std::condition_variable m_cv;
+			bool socket_aborting = false;
+
+			enum {
+				succeeded,
+				aborting,
+				failed,
+				running
+			};
+
+			struct RX {
+				const void* data = nullptr;
+				size_t transferred = 0;
+				int status = running;
+			};
+
+			struct TX {
+				std::array<char, 8192> data;
+				size_t transferred = 0;
+				int status = running;
+			};
+
+			void write_data(RX& rx);
+			void read_data(TX& tx);
+		public:
+			asio_stream(io_service& io, connection* parent)
+				: m_socket { io }
+				, m_parent { parent }
+			{
+			}
+
+			void shutdown(stream*) override;
+			bool overflow(stream* src, const void* data, size_t size) override;
+			bool underflow(stream* src) override;
+			bool is_open(stream*) override;
+			endpoint_t remote_endpoint(stream*) override;
+			endpoint_t local_endpoint(stream*) override;
+
+			ip::tcp::socket& socket() { return m_socket; }
+			void close();
+		};
+
+		asio_stream m_stream;
+
 		std::thread m_th;
 		connection_manager& m_connection_manager;
 		std::array<char, 8192> m_buffer;
@@ -30,7 +80,7 @@ namespace web { namespace asio {
 		connection& operator=(const connection&) = delete;
 		explicit connection(io_service& io, connection_manager& manager);
 
-		ip::tcp::socket& socket() { return m_socket; }
+		ip::tcp::socket& socket() { return m_stream.socket(); }
 
 		void start();
 		void stop();

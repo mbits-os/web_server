@@ -4,7 +4,11 @@
  */
 
 #include <web/response.h>
+#include <web/request.h>
+#include <web/mime_type.h>
 #include <web/uri.h>
+#include <sys/stat.h>
+#include <ctime>
 
 namespace web {
 	const char* status_name(status st)
@@ -48,6 +52,64 @@ namespace web {
 			}
 		}
 		ll_print("\r\n");
+	}
+
+	struct fcloser {
+		void operator()(FILE* f) const
+		{
+			fclose(f);
+		}
+	};
+
+	void response::send_file(const std::string& path)
+	{
+		throw_if_sent("send_file");
+		m_cache_content = true; // first, for stoc_response()s, second, to navigate the finish();
+
+		struct stat st;
+		if (stat(path.c_str(), &st)) {
+			stock_response(web::status::not_found);
+			return;
+		}
+
+		if ((st.st_mode & S_IFMT) == S_IFDIR) {
+			stock_response(web::status::forbidden);
+			return;
+		}
+
+		std::unique_ptr<FILE, fcloser> f { std::fopen(path.c_str(), "rb") };
+		if (!f) {
+			stock_response(web::status::not_found);
+			return;
+		}
+
+		bool only_head = false;
+		set(header::Content_Length, std::to_string(st.st_size));
+		set(header::Content_Type, mime_type(path));
+		{
+			char buf[1000];
+			auto tme = *gmtime(&st.st_mtime);
+			strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", &tme);
+			set(header::Last_Modified, buf);
+			auto if_modified = m_req_ref->find_front(header::If_Modified_Since);
+			if (if_modified && *if_modified == buf) {
+				status(web::status::not_modified);
+				only_head = true;
+			}
+		}
+
+		send_headers();
+
+		if (only_head)
+			return;
+
+		char buffer[8192];
+
+		auto read = std::fread(buffer, 1, sizeof(buffer), f.get());
+		while (read) {
+			ll_write(buffer, read);
+			read = std::fread(buffer, 1, sizeof(buffer), f.get());
+		}
 	}
 
 	void response::write(const void* data, size_t length)
@@ -107,11 +169,15 @@ namespace web {
 			return;
 		}
 
-		if (!has(header::Content_Length))
-			set(header::Content_Length, std::to_string(m_contents.size()));
-		send_headers();
-		ll_write(m_contents.data(), m_contents.size());
-		m_contents.clear();
+		// haders would be sent from APIs like send_file()
+		if (!m_headers_sent) {
+			if (!has(header::Content_Length))
+				set(header::Content_Length, std::to_string(m_contents.size()));
+			send_headers();
+			ll_write(m_contents.data(), m_contents.size());
+			m_contents.clear();
+		}
+
 		if (!m_os->overflow())
 			throw write_exception();
 	}
