@@ -129,7 +129,7 @@ namespace web {
 		}
 		const std::string* location() const { return find_front(header::Location); }
 
-		void send_file(const std::string& path);
+		void send_file(const std::string& path, bool only_head);
 		void write(const void* data, size_t length);
 		void print(const std::string& s)
 		{

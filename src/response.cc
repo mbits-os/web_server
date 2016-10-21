@@ -61,7 +61,7 @@ namespace web {
 		}
 	};
 
-	void response::send_file(const std::string& path)
+	void response::send_file(const std::string& path, bool only_head)
 	{
 		throw_if_sent("send_file");
 		m_cache_content = true; // first, for stoc_response()s, second, to navigate the finish();
@@ -83,7 +83,6 @@ namespace web {
 			return;
 		}
 
-		bool only_head = false;
 		set(header::Content_Length, std::to_string(st.st_size));
 		set(header::Content_Type, mime_type(path));
 		{
@@ -91,10 +90,13 @@ namespace web {
 			auto tme = *gmtime(&st.st_mtime);
 			strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", &tme);
 			set(header::Last_Modified, buf);
-			auto if_modified = m_req_ref->find_front(header::If_Modified_Since);
-			if (if_modified && *if_modified == buf) {
-				status(web::status::not_modified);
-				only_head = true;
+
+			if (!only_head) {
+				auto if_modified = m_req_ref->find_front(header::If_Modified_Since);
+				if (if_modified && *if_modified == buf) {
+					status(web::status::not_modified);
+					only_head = true;
+				}
 			}
 		}
 
