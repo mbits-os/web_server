@@ -184,7 +184,7 @@ namespace web {
 		for (auto& pair : m_routes.filters()) {
 			if (starts_with(resource, pair.first)) {
 				auto res = pair.second->handle(req, resp);
-				if (res == middleware::finished)
+				if (res == middleware_base::finished)
 					return;
 			}
 		}

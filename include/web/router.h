@@ -14,7 +14,7 @@ namespace web {
 	public:
 		using route_list = std::unordered_map<method, std::vector<std::shared_ptr<route>>>;
 		using sroute_list = std::unordered_map<std::string, std::vector<std::shared_ptr<route>>>;
-		using filter_list = std::vector<std::pair<std::string, std::shared_ptr<middleware>>>;
+		using filter_list = std::vector<std::pair<std::string, std::shared_ptr<middleware_base>>>;
 
 		class compiled {
 			route_list m_routes;
@@ -71,7 +71,7 @@ namespace web {
 			use("/", std::make_shared<Class>(std::forward<Args>(args)...));
 		}
 
-		void use(const std::string& path, const std::shared_ptr<middleware>& filt);
+		void use(const std::string& path, const std::shared_ptr<middleware_base>& filt);
 
 		compiled compile(int options = COMPILE_DEFAULT);
 	};

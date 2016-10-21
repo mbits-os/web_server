@@ -28,7 +28,7 @@ namespace web {
 		m_routers.push_back({ path, sub });
 	}
 
-	void router::use(const std::string& path, const std::shared_ptr<middleware>& filt)
+	void router::use(const std::string& path, const std::shared_ptr<middleware_base>& filt)
 	{
 		m_middleware.push_back({ path, filt });
 	}

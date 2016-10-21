@@ -9,12 +9,12 @@
 #include <web/response.h>
 
 namespace web {
-	struct middleware {
+	struct middleware_base {
 		enum result {
 			carry_on = true,
 			finished = false
 		};
-		virtual ~middleware() = default;
+		virtual ~middleware_base() = default;
 		virtual result handle(request& req, response& resp) = 0;
 	};
 }
