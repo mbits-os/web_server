@@ -214,6 +214,7 @@ namespace web {
 			return;
 		}
 
+		std::swap(params, req.m_params);
 		handler->call(req, resp);
 	}
 

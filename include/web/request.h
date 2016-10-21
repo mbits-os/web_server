@@ -8,6 +8,7 @@
 #include <web/attribute.h>
 #include <web/headers.h>
 #include <web/uri.h>
+#include <web/path_compiler.h>
 
 namespace web {
 	enum class method {
@@ -24,20 +25,26 @@ namespace web {
 
 	method make_method(std::string& textual);
 
+	class server;
 	class request_parser;
 	class request {
 		friend class request_parser;
+		friend class server;
 	protected:
 		std::string m_smethod;
 		web::method m_method;
 		web::uri m_uri;
 		http_version_t m_version;
+		std::vector<param> m_params;
 		web::headers m_headers;
 	public:
 		const std::string& smethod() const { return m_smethod; }
 		web::method method() const { return m_method; }
 		const web::uri& uri() const { return m_uri; }
 		http_version_t version() const { return m_version; }
+		const std::vector<param>& params() const { return m_params; }
+		const std::string* param(const std::string& key) const;
+		const std::string* param(size_t key) const;
 		const web::headers& headers() const { return m_headers; }
 
 		const std::string* find_front(const header_key& key) const

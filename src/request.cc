@@ -34,4 +34,22 @@ namespace web {
 
 		return method::other;
 	}
+
+	const std::string* request::param(const std::string& key) const
+	{
+		for (auto& p : m_params) {
+			if (!p.sname.empty() && p.sname == key)
+				return &p.value;
+		}
+		return nullptr;
+	}
+
+	const std::string* request::param(size_t key) const
+	{
+		for (auto& p : m_params) {
+			if (p.sname.empty() && p.nname == key)
+				return &p.value;
+		}
+		return nullptr;
+	}
 }
