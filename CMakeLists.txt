@@ -75,3 +75,8 @@ ENDIF()
 ADD_LIBRARY(http_server STATIC ${SRCS})
 TARGET_LINK_LIBRARIES(http_server ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 SET_PROPERTY(TARGET http_server PROPERTY CXX_STANDARD 14)
+
+
+ADD_LIBRARY(middleware_files STATIC middleware/files/files.h middleware/files/files.cc)
+TARGET_LINK_LIBRARIES(middleware_files ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+SET_PROPERTY(TARGET middleware_files PROPERTY CXX_STANDARD 14)
