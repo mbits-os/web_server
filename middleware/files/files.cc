@@ -66,14 +66,14 @@ namespace web { namespace middleware {
 							resp.add(header::Location, uri.string());
 							resp.stock_response(status::moved_permanently);
 						} else {
-							resp.send_file(ndx, m == method::head);
+							resp.send_file(ndx);
 						}
 						return finished;
 					}
 				}
 				return carry_on;
 			}
-			resp.send_file(path, m == method::head);
+			resp.send_file(path);
 			return finished;
 		}
 

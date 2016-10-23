@@ -35,7 +35,7 @@ namespace web {
 		return method::other;
 	}
 
-	const std::string* request::param(const std::string& key) const
+	const std::string* request::find_param(const std::string& key) const
 	{
 		for (auto& p : m_params) {
 			if (!p.sname.empty() && p.sname == key)
@@ -44,7 +44,7 @@ namespace web {
 		return nullptr;
 	}
 
-	const std::string* request::param(size_t key) const
+	const std::string* request::find_param(size_t key) const
 	{
 		for (auto& p : m_params) {
 			if (p.sname.empty() && p.nname == key)

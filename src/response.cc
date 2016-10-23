@@ -61,11 +61,12 @@ namespace web {
 		}
 	};
 
-	void response::send_file(const std::string& path, bool only_head)
+	void response::send_file(const std::string& path)
 	{
 		throw_if_sent("send_file");
-		m_cache_content = true; // first, for stoc_response()s, second, to navigate the finish();
+		m_cache_content = true; // first, for stock_response()s, second, to navigate the finish();
 
+		bool only_head = m_req_ref->method() == method::head;
 		struct stat st;
 		if (stat(path.c_str(), &st)) {
 			stock_response(web::status::not_found);
@@ -131,6 +132,29 @@ namespace web {
 		// todo: flush/gather chunks
 	}
 
+	response& response::print_json(const char* s, size_t length)
+	{
+		// TODO: UNICODE
+		print('"');
+		auto c = s;
+		auto e = s + length;
+		for (; c != e; ++c) {
+			switch (*c) {
+			case '"': print("\\\""); break;
+			case '\\': print("\\\\"); break;
+			case '/': print("\\/"); break;
+			case '\b': print("\\b"); break;
+			case '\f': print("\\f"); break;
+			case '\n': print("\\n"); break;
+			case '\r': print("\\r"); break;
+			case '\t': print("\\t"); break;
+			default:
+				print(*c);
+			}
+		}
+		return print('"');
+	}
+
 	void response::stock_response(web::status st)
 	{
 		auto text = status_name(st);
@@ -173,10 +197,25 @@ namespace web {
 
 		// haders would be sent from APIs like send_file()
 		if (!m_headers_sent) {
+			bool only_head = m_req_ref->method() == method::head;
+			if (!only_head) {
+				auto last_modified = m_headers.find_front(header::Last_Modified);
+				if (last_modified) {
+					auto if_modified = m_req_ref->find_front(header::If_Modified_Since);
+					if (if_modified && *if_modified == *last_modified) {
+						status(web::status::not_modified);
+						only_head = true;
+					}
+				}
+			}
+
 			if (!has(header::Content_Length))
 				set(header::Content_Length, std::to_string(m_contents.size()));
 			send_headers();
-			ll_write(m_contents.data(), m_contents.size());
+
+			if (!only_head)
+				ll_write(m_contents.data(), m_contents.size());
+
 			m_contents.clear();
 		}
 

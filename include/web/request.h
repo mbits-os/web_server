@@ -43,8 +43,8 @@ namespace web {
 		const web::uri& uri() const { return m_uri; }
 		http_version_t version() const { return m_version; }
 		const std::vector<param>& params() const { return m_params; }
-		const std::string* param(const std::string& key) const;
-		const std::string* param(size_t key) const;
+		const std::string* find_param(const std::string& key) const;
+		const std::string* find_param(size_t key) const;
 		const web::headers& headers() const { return m_headers; }
 
 		const std::string* find_front(const header_key& key) const

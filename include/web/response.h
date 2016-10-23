@@ -129,17 +129,30 @@ namespace web {
 		}
 		const std::string* location() const { return find_front(header::Location); }
 
-		void send_file(const std::string& path, bool only_head);
+		void send_file(const std::string& path);
 		void write(const void* data, size_t length);
-		void print(const std::string& s)
+		response& print(const std::string& s)
 		{
 			write(s.c_str(), s.length());
+			return *this;
 		}
-		void print(const char* s)
+		response& print(const char* s)
 		{
 			if (s)
 				write(s, std::strlen(s));
+			return *this;
 		}
+		response& print(char c) { write(&c, 1); return *this; }
+
+		response& print_json(const std::string& s)
+		{
+			return print_json(s.c_str(), s.length());
+		}
+		response& print_json(const char* s)
+		{
+			return print_json(s, s ? strlen(s) : 0);
+		}
+		response& print_json(const char* s, size_t length);
 
 		void stock_response(web::status st);
 		void finish();
