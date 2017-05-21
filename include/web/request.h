@@ -37,6 +37,7 @@ namespace web {
 		http_version_t m_version;
 		std::vector<param> m_params;
 		web::headers m_headers;
+		std::vector<char> m_payload;
 	public:
 		const std::string& smethod() const { return m_smethod; }
 		web::method method() const { return m_method; }
@@ -46,6 +47,8 @@ namespace web {
 		const std::string* find_param(const std::string& key) const;
 		const std::string* find_param(size_t key) const;
 		const web::headers& headers() const { return m_headers; }
+
+		const std::vector<char>& payload() const { return m_payload; }
 
 		const std::string* find_front(const header_key& key) const
 		{

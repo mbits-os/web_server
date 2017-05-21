@@ -17,6 +17,7 @@ namespace web {
 #ifdef HTTP_USE_ASIO
 		asio::service m_svc;
 #endif
+		void load_content(stream& io, request& req);
 		void handle_connection(request& req, response& resp);
 	public:
 		server();

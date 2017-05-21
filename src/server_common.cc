@@ -85,6 +85,7 @@ namespace web {
 	std::mutex io_mtx;
 	class reporter {
 		std::string remote;
+		std::string remotest;
 		request& req;
 		response& resp;
 	public:
@@ -92,6 +93,7 @@ namespace web {
 			: remote(std::move(remote)), req(req), resp(resp)
 		{
 		}
+		void forwarded_for(const std::string& v) { remotest = v; }
 		~reporter()
 		{
 			diag dg { req.version(), req.uri().string(web::uri::ui_safe), req.method() };
@@ -117,10 +119,18 @@ namespace web {
 
 			std::lock_guard<std::mutex> lck { io_mtx };
 			std::ostringstream os; os << std::this_thread::get_id();
-			fprintf(stderr, "(%s) [%s] %s \"%s%s\" HTTP/%u.%u -- %u\n",
-				os.str().c_str(), remote.c_str(),
-				method, dg.uri.path().str().c_str(), dg.uri.query().str().c_str(), dg.ver.M_ver(), dg.ver.m_ver(),
-				(unsigned)dg.st);
+
+			if (remotest.empty()) {
+				fprintf(stderr, "(%s) [%s] %s \"%s%s\" HTTP/%u.%u -- %u\n",
+					os.str().c_str(), remote.c_str(),
+					method, dg.uri.path().str().c_str(), dg.uri.query().str().c_str(), dg.ver.M_ver(), dg.ver.m_ver(),
+					(unsigned)dg.st);
+			} else {
+				fprintf(stderr, "(%s) [%s|%s] %s \"%s%s\" HTTP/%u.%u -- %u\n",
+					os.str().c_str(), remote.c_str(), remotest.c_str(),
+					method, dg.uri.path().str().c_str(), dg.uri.query().str().c_str(), dg.ver.M_ver(), dg.ver.m_ver(),
+					(unsigned)dg.st);
+			}
 		}
 	};
 
@@ -162,6 +172,13 @@ namespace web {
 			}
 
 			try {
+				auto fwdd = req.find_front(
+					web::header_key::make("x-forwarded-for")
+					);
+				if (fwdd)
+					rep.forwarded_for(*fwdd);
+
+				load_content(io, req);
 				resp.version(req.version());
 				handle_connection(req, resp);
 				resp.finish();
@@ -175,6 +192,21 @@ namespace web {
 				break;
 			}
 		}
+	}
+
+	void server::load_content(stream& io, request& req)
+	{
+		auto slen = req.find_front(header::Content_Length);
+		if (!slen)
+			return;
+
+		char* bad = nullptr;
+		auto length = std::strtoull(slen->c_str(), &bad, 10);
+		if (bad && *bad)
+			return;
+
+		req.m_payload.resize(length);
+		io.read(&req.m_payload[0], length);
 	}
 
 	void server::handle_connection(request& req, response& resp)
