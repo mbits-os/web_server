@@ -134,8 +134,12 @@ namespace web {
 
 	response& response::print_json(const char* s, size_t length)
 	{
+		return print('"').print_json_chunk(s, length).print('"');
+	}
+
+	response& response::print_json_chunk(const char* s, size_t length)
+	{
 		// TODO: UNICODE
-		print('"');
 		auto c = s;
 		auto e = s + length;
 		for (; c != e; ++c) {
@@ -152,7 +156,7 @@ namespace web {
 				print(*c);
 			}
 		}
-		return print('"');
+		return *this;
 	}
 
 	void response::stock_response(web::status st)

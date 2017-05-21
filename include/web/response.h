@@ -154,6 +154,16 @@ namespace web {
 		}
 		response& print_json(const char* s, size_t length);
 
+		response& print_json_chunk(const std::string& s)
+		{
+			return print_json_chunk(s.c_str(), s.length());
+		}
+		response& print_json_chunk(const char* s)
+		{
+			return print_json_chunk(s, s ? strlen(s) : 0);
+		}
+		response& print_json_chunk(const char* s, size_t length);
+
 		void stock_response(web::status st);
 		void finish();
 
