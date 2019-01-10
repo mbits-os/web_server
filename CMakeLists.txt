@@ -81,7 +81,6 @@ SET(SRCS
     src/uri.cc
 
     include/web/bits/asio.h
-    include/web/cstring.h
     include/web/delegate.h
     include/web/headers.h
     include/web/middleware.h

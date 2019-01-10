@@ -27,15 +27,16 @@ namespace web { namespace middleware {
 
 	middleware_base::result files::handle(request& req, response& resp)
 	{
+		auto const res_view = req.uri().path();
 #ifdef WIN32
-		auto resource = req.uri().path().str();
+		auto resource = std::string{ res_view.data(), res_view.length() };
 		for (auto& c : resource) {
 			if (c == '/')
 				c = '\\';
 		}
 		auto path = m_root + resource;
 #else
-		auto path = m_root + req.uri().path();
+		auto path = m_root + std::string{ res_view.data(), res_view.length() };
 #endif
 
 		struct stat st;
@@ -62,7 +63,8 @@ namespace web { namespace middleware {
 					if ((mode & S_IFDIR) != S_IFDIR) {
 						if (expanded) {
 							auto uri = req.uri();
-							uri.path(uri.path() + "/");
+							auto const path_view = uri.path();
+							uri.path(std::string{ path_view.data(), path_view.length() } + "/");
 							resp.add(header::Location, uri.string());
 							resp.stock_response(status::moved_permanently);
 						} else {

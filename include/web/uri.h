@@ -1,26 +1,26 @@
 /*
-* Copyright (C) 2013 midnightBITS
-*
-* Permission is hereby granted, free of charge, to any person
-* obtaining a copy of this software and associated documentation
-* files (the "Software"), to deal in the Software without
-* restriction, including without limitation the rights to use, copy,
-* modify, merge, publish, distribute, sublicense, and/or sell copies
-* of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be
-* included in all copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-* NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-* BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-* ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-* CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*/
+ * Copyright (C) 2013 midnightBITS
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use, copy,
+ * modify, merge, publish, distribute, sublicense, and/or sell copies
+ * of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 
 #pragma once
 
@@ -36,7 +36,8 @@ utilities.
 
 #include <unordered_map>
 #include <vector>
-#include <web/cstring.h>
+#include <string>
+#include <string_view>
 
 namespace web {
 	/**
@@ -118,34 +119,34 @@ namespace web {
 	of URL.
 
 	A version of urlencode(const char*, size_t) taking a
-	cstring as input range.
+	std::string_view as input range.
 
-	\param in a cstring to encode
+	\param in a std::string_view to encode
 	\return percent-encoded string containing no reserved
 	        characters, except for the percent sign.
 
 	\see urlencode(const char*, size_t)
 	*/
-	inline std::string urlencode(const cstring& in)
+	inline std::string urlencode(std::string_view in)
 	{
-		return urlencode(in.c_str(), in.length());
+		return urlencode(in.data(), in.length());
 	}
 
 	/**
 	Removes all percent-encodings from the input range.
 
 	A version of urldecode(const char*, size_t) taking a
-	cstring as input range.
+	std::string_view as input range.
 
-	\param in a cstring to decode
+	\param in a std::string_view to decode
 	\return percent-decoded string, which may include some
 	        registered characters.
 
 	\see urldecode(const char*, size_t)
 	*/
-	inline std::string urldecode(const cstring& in)
+	inline std::string urldecode(std::string_view in)
 	{
-		return urldecode(in.c_str(), in.length());
+		return urldecode(in.data(), in.length());
 	}
 
 	/**
@@ -161,8 +162,8 @@ namespace web {
 		std::string m_uri;
 		using size_type = std::string::size_type;
 
-		static constexpr size_type ncalc = (size_type)(-2);
-		static constexpr size_type npos = (size_type)(-1);
+		static constexpr size_type ncalc = static_cast<size_type>(-2);
+		static constexpr size_type npos = static_cast<size_type>(-1);
 
 		mutable size_type m_scheme = ncalc;
 		mutable size_type m_path = ncalc;
@@ -209,7 +210,7 @@ namespace web {
 		Constructs an uri from the identifier.
 		\param ident a string representing the uri
 		*/
-		uri(const cstring& ident);
+		uri(std::string_view ident);
 
 		/**
 		Constructs an uri from the identifier.
@@ -253,7 +254,7 @@ namespace web {
 			        successful; an authority with empty
 					host on error
 			*/
-			static auth_builder parse(const cstring& auth);
+			static auth_builder parse(std::string_view auth);
 
 			/**
 			Generates an authority component from its members.
@@ -289,7 +290,7 @@ namespace web {
 			\param query a query component to be parsed
 			\result a parsed query with decoded name/value pairs
 			*/
-			static query_builder parse(const cstring& query);
+			static query_builder parse(std::string_view query);
 
 			/**
 			Adds a new name/value pair.
@@ -329,6 +330,20 @@ namespace web {
 			\result a vector of name/value pairs
 			*/
 			std::vector<std::pair<std::string, std::string>> list() const;
+
+			std::vector<std::string> const* find(std::string const& key) const {
+				auto it = m_values.find(key);
+				if (it == m_values.end())
+					return nullptr;
+				return &it->second;
+			}
+
+			std::string const* find_front(std::string const& key) const {
+				auto vals = find(key);
+				if (!vals || vals->empty())
+					return nullptr;
+				return &vals->front();
+			}
 		};
 
 		/**
@@ -367,6 +382,12 @@ namespace web {
 		bool has_scheme() const;
 
 		/**
+		Checks, if the URI seems to contain a non-empty scheme.
+		\returns true, if the URI has_scheme(), but is scheme-relative
+		*/
+		bool is_scheme_relative() const;
+
+		/**
 		Checks, if the URI seems to contain an authority.
 		\returns true, if the non-scheme part starts with <code>//</code>
 		*/
@@ -382,67 +403,67 @@ namespace web {
 		Getter for the scheme property.
 		\returns scheme, if present
 		*/
-		cstring scheme() const;
+		std::string_view scheme() const;
 
 		/**
 		Getter for the authority property.
 		\returns authority, if present
 		*/
-		cstring authority() const;
+		std::string_view authority() const;
 
 		/**
 		Getter for the path property.
 		\returns path, if present
 		*/
-		cstring path() const;
+		std::string_view path() const;
 
 		/**
 		Getter for the query property.
 		\returns query, if present
 		*/
-		cstring query() const;
+		std::string_view query() const;
 
 		/**
 		Getter for the resource property.
 		\returns path and query, if present
 		*/
-		cstring resource() const;
+		std::string_view resource() const;
 
 		/**
 		Getter for the fragment property.
 		\returns fragment, if present
 		*/
-		cstring fragment() const;
+		std::string_view fragment() const;
 
 		/**
 		Setter for the scheme property.
 		\param value new value of the property
 		*/
-		void scheme(const cstring& value);
+		void scheme(std::string_view value);
 
 		/**
 		Setter for the authority property.
 		\param value new value of the property
 		*/
-		void authority(const cstring& value);
+		void authority(std::string_view value);
 
 		/**
 		Setter for the path property.
 		\param value new value of the property
 		*/
-		void path(const cstring& value);
+		void path(std::string_view value);
 
 		/**
 		Setter for the query property.
 		\param value new value of the property
 		*/
-		void query(const cstring& value);
+		void query(std::string_view value);
 
 		/**
 		Setter for the fragment property.
 		\param value new value of the property
 		*/
-		void fragment(const cstring& value);
+		void fragment(std::string_view value);
 
 		/**
 		Getter for the underlying object
@@ -450,19 +471,6 @@ namespace web {
 		         the underlying string
 		*/
 		const std::string& string() const { return m_uri; }
-
-		/**
-		Getter for the underlying object
-		\returns an immutable reference to
-		         the underlying string
-		*/
-		std::string string(auth_flag flag) const {
-			auto copy = *this;
-			copy.authority(
-				auth_builder::parse(copy.authority()).string(flag)
-			);
-			return copy.string();
-		}
 
 		/**
 		Removes the last component of the path.

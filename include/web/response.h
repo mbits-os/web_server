@@ -136,6 +136,11 @@ namespace web {
 			write(s.c_str(), s.length());
 			return *this;
 		}
+		response& print(std::string_view s)
+		{
+			write(s.data(), s.length());
+			return *this;
+		}
 		response& print(const char* s)
 		{
 			if (s)
@@ -144,9 +149,19 @@ namespace web {
 		}
 		response& print(char c) { write(&c, 1); return *this; }
 
+		response& print_json(bool value) {
+			return print(value ? "true": "false");
+		}
+		response& print_json(std::nullptr_t) {
+			return print("null");
+		}
 		response& print_json(const std::string& s)
 		{
 			return print_json(s.c_str(), s.length());
+		}
+		response& print_json(std::string_view s)
+		{
+			return print_json(s.data(), s.length());
 		}
 		response& print_json(const char* s)
 		{

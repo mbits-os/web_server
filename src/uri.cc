@@ -27,7 +27,11 @@
 
 namespace web {
 	namespace {
-		int default_port(const cstring& scheme)
+		inline std::string to_string(std::string_view sv) {
+			return { sv.data(), sv.length() };
+		}
+
+		int default_port(std::string_view scheme)
 		{
 #define KNOWN(proto, port) if (scheme == #proto) return port;
 
@@ -50,12 +54,12 @@ namespace web {
 			return s;
 		}
 
-		std::string tolower(const cstring& s)
+		std::string tolower(std::string_view s)
 		{
 			return tolower(to_string(s));
 		}
 
-		std::vector<cstring> path_split(const cstring& path)
+		std::vector<std::string_view> path_split(std::string_view path)
 		{
 			auto length = 1;
 			for (auto c : path) {
@@ -63,17 +67,17 @@ namespace web {
 					++length;
 			}
 
-			std::vector<cstring> out;
+			std::vector<std::string_view> out;
 			out.reserve(length);
 
 			auto slash = path.find('/');
 			decltype(slash) prev = 0;
-			while (slash != cstring::npos) {
-				out.emplace_back(path.subspan(prev, slash - prev));
+			while (slash != std::string_view::npos) {
+				out.emplace_back(path.substr(prev, slash - prev));
 				prev = slash + 1;
 				slash = path.find('/', prev);
 			}
-			out.emplace_back(path.subspan(prev));
+			out.emplace_back(path.substr(prev));
 
 			return out;
 		}
@@ -160,9 +164,9 @@ namespace web {
 			return urlencode(in, in_len, host_issafe);
 		}
 
-		inline std::string host_urlencode(const cstring& in)
+		inline std::string host_urlencode(std::string_view in)
 		{
-			return host_urlencode(in.c_str(), in.length());
+			return host_urlencode(in.data(), in.length());
 		}
 	}
 
@@ -190,16 +194,16 @@ namespace web {
 		return out;
 	}
 
-	uri::auth_builder uri::auth_builder::parse(const cstring& auth)
+	uri::auth_builder uri::auth_builder::parse(std::string_view auth)
 	{
 		auto pos = auth.find('@');
-		auto host = pos == cstring::npos ? 0 : pos + 1;
+		auto host = pos == std::string_view::npos ? 0 : pos + 1;
 
 		auto colon = auth.rfind(':');
 		if (auth.length() > host && auth[host] == '[') {
 			// IPv6/IPVFuture...
 			auto end = auth.find(']', host);
-			if (end == cstring::npos)
+			if (end == std::string_view::npos)
 				return { };
 
 			if (auth.length() > (end + 1) && auth[end + 1] != ':')
@@ -207,25 +211,26 @@ namespace web {
 
 			colon = end + 1;
 			if (colon >= auth.length())
-				colon = cstring::npos;
-		} else if (colon < host)
-			colon = cstring::npos;
+				colon = std::string_view::npos;
+		}
+		else if (colon < host)
+			colon = std::string_view::npos;
 
-		auto host_count = colon == cstring::npos ? cstring::npos : colon - host;
+		auto host_count = colon == std::string_view::npos ? std::string_view::npos : colon - host;
 
-		auth_builder out { };
+		auth_builder out{ };
 
 		if (host) {
-			auto userInfo = auth.subspan(0, pos);
+			auto userInfo = auth.substr(0, pos);
 			auto colon = userInfo.find(':');
-			out.user = urldecode(userInfo.subspan(0, colon));
-			if (colon != cstring::npos)
-				out.password = urldecode(userInfo.subspan(colon + 1));
+			out.user = urldecode(userInfo.substr(0, colon));
+			if (colon != std::string_view::npos)
+				out.password = urldecode(userInfo.substr(colon + 1));
 		}
 
-		out.host = urldecode(auth.subspan(host, host_count));
-		if (colon != cstring::npos)
-			out.port = urldecode(auth.subspan(colon + 1));
+		out.host = urldecode(auth.substr(host, host_count));
+		if (colon != std::string_view::npos)
+			out.port = urldecode(auth.substr(colon + 1));
 
 		return out;
 	}
@@ -287,7 +292,8 @@ namespace web {
 					first = false;
 					if (flag == start_with_qmark)
 						out += "?";
-				} else out += "&";
+				}
+				else out += "&";
 
 				out += name + urlencode(value);
 			}
@@ -318,11 +324,15 @@ namespace web {
 #define LOOK_FOR2(ch1, ch2) do { while (!isspace((unsigned char)*c) && *c != (ch1) && *c != (ch2) && c < end) ++c; } while(0)
 #define IS(ch) (c < end && *c == (ch))
 
-	uri::query_builder uri::query_builder::parse(const cstring& query)
+	uri::query_builder uri::query_builder::parse(std::string_view query)
 	{
 		uri::query_builder out;
-		const char* c = query.c_str();
+		const char* c = query.data();
 		const char* end = c + query.length();
+
+		if (c < end && *c == '?')
+			++c;
+
 		while (c < end) {
 			WS();
 			const char* name_start = c;
@@ -337,7 +347,8 @@ namespace web {
 				LOOK_FOR('&');
 				out.add(name, urldecode(value_start, c - value_start));
 				WS();
-			} else
+			}
+			else
 				out.add(name, { });
 
 			if (!IS('&')) break;
@@ -356,27 +367,27 @@ namespace web {
 	uri::uri(const uri&) = default;
 	uri& uri::operator=(const uri&) = default;
 
-	uri::uri(const cstring& ident)
-		: m_uri { ident.c_str(), ident.length() }
+	uri::uri(std::string_view ident)
+		: m_uri{ ident.data(), ident.length() }
 	{
 	}
 	uri::uri(const std::string& ident)
-		: m_uri { ident }
+		: m_uri{ ident }
 	{
 	}
 
 	uri::uri(std::string&& ident)
-		: m_uri { std::move(ident) }
+		: m_uri{ std::move(ident) }
 	{
 	}
 
 	uri::uri(const char* ident)
-		: m_uri { ident }
+		: m_uri{ ident }
 	{
 	}
 
 	uri::uri(uri&& other)
-		: m_uri { std::move(other.m_uri) }
+		: m_uri{ std::move(other.m_uri) }
 	{
 		other.invalidate_scheme();
 	}
@@ -401,6 +412,11 @@ namespace web {
 		auto c = b;
 		auto e = b + length;
 
+		if (c != e && (c + 1) != e && *c == '/' && c[1] == '/') {
+			m_scheme = 0;
+			return;
+		}
+
 		if (c == e || !isalpha((unsigned char)*c))
 			return;
 
@@ -410,6 +426,7 @@ namespace web {
 
 		if (c == e || *c != ':')
 			return;
+		++c;
 
 		m_scheme = c - b;
 	}
@@ -430,12 +447,12 @@ namespace web {
 
 		auto c = m_uri.data();
 
-		m_path = m_scheme + 1;
+		m_path = m_scheme;
 
-		if (m_scheme + 2 >= length || c[m_scheme + 1] != '/' || c[m_scheme + 2] != '/')
+		if (m_scheme + 1 >= length || c[m_scheme] != '/' || c[m_scheme + 1] != '/')
 			return;
 
-		m_path = m_scheme + 3;
+		m_path = m_scheme + 2;
 		while (m_path < length) {
 			switch (c[m_path]) {
 			case '/': case '?': case '#':
@@ -505,6 +522,13 @@ namespace web {
 		ensure_scheme();
 		return m_scheme != npos;
 	}
+
+	bool uri::is_scheme_relative() const
+	{
+		ensure_scheme();
+		return m_scheme == 0;
+	}
+
 	bool uri::has_authority() const
 	{
 		ensure_path();
@@ -518,83 +542,89 @@ namespace web {
 			return false; // no space for //
 
 		auto c = m_uri.data();
-		return c[m_scheme + 1] == '/' && c[m_scheme + 2] == '/';
+		return c[m_scheme] == '/' && c[m_scheme + 1] == '/';
 	}
 
-	cstring subspan(const std::string& s, size_t off, size_t len)
+	std::string_view substr(const std::string& s, size_t off, size_t len)
 	{
-		return { s.c_str() + off, len };
+		return { s.data() + off, len };
 	}
 
-	cstring subspan(const std::string& s, size_t off)
+	std::string_view substr(const std::string& s, size_t off)
 	{
-		return { s.c_str() + off, s.length() - off };
+		return { s.data() + off, s.length() - off };
 	}
 
-	cstring uri::scheme() const
+	std::string_view uri::scheme() const
+	{
+		if (!has_scheme() || !m_scheme)
+			return {};
+
+		return substr(m_uri, 0, m_scheme - 1);
+	}
+
+	std::string_view uri::authority() const
 	{
 		if (!has_scheme())
-			return cstring();
-
-		return subspan(m_uri, 0, m_scheme);
-	}
-
-	cstring uri::authority() const
-	{
-		if (!has_scheme())
-			return cstring();
+			return {};
 
 		if (is_opaque())
-			return cstring();
+			return {};
 
-		auto start = m_scheme + 3;
-		return subspan(m_uri, start, m_path - start);
+		auto start = m_scheme + 2;
+		return substr(m_uri, start, m_path - start);
 	}
 
-	cstring uri::path() const
+	std::string_view uri::path() const
 	{
 		ensure_query();
-		return subspan(m_uri, m_path, m_query - m_path);
+		return substr(m_uri, m_path, m_query - m_path);
 	}
 
-	cstring uri::query() const
+	std::string_view uri::query() const
 	{
 		ensure_fragment();
-		return subspan(m_uri, m_query, m_part - m_query);
+		return substr(m_uri, m_query, m_part - m_query);
 	}
 
-	cstring uri::resource() const
+	std::string_view uri::resource() const
 	{
 		ensure_fragment();
-		return subspan(m_uri, m_path, m_part - m_path);
+		return substr(m_uri, m_path, m_part - m_path);
 	}
 
-	cstring uri::fragment() const
+	std::string_view uri::fragment() const
 	{
 		ensure_fragment();
-		return subspan(m_uri, m_part);
+		return substr(m_uri, m_part);
 	}
 
-	void uri::scheme(const cstring& value)
+	void uri::scheme(std::string_view value)
 	{
-		if (!has_scheme())
+		ensure_scheme();
+		if (m_scheme == npos)
 			return;
 
-		m_uri.replace(0, m_scheme, value.c_str(), value.length());
+		if (m_scheme)
+			m_uri.replace(0, m_scheme - 1, value.data(), value.length());
+		else {
+			m_uri.replace(0, 0, value.data(), value.length());
+			m_uri.insert(value.length(), 1, ':');
+		}
 		invalidate_scheme();
 	}
 
-	void uri::authority(const cstring& value)
+	void uri::authority(std::string_view value)
 	{
 		if (is_opaque())
 			return;
 
-		auto start = m_scheme + 3;
-		m_uri.replace(start, m_path - start, value.c_str(), value.length());
+		auto start = m_scheme + 2;
+		m_uri.replace(start, m_path - start, value.data(), value.length());
 		invalidate_path();
 	}
 
-	void uri::path(const cstring& value)
+	void uri::path(std::string_view value)
 	{
 		ensure_query();
 		if (has_authority() && (value.empty() || value[0] != '/')) {
@@ -602,29 +632,29 @@ namespace web {
 			++m_path;
 			m_query = m_path;
 		}
-		m_uri.replace(m_path, m_query - m_path, value.c_str(), value.length());
+		m_uri.replace(m_path, m_query - m_path, value.data(), value.length());
 		invalidate_path(); // query -> path due to having possibly taken the '/' branch and having ++m_path
 	}
 
-	void uri::query(const cstring& value)
+	void uri::query(std::string_view value)
 	{
 		ensure_fragment();
-		m_uri.replace(m_query, m_part - m_query, value.c_str(), value.length());
+		m_uri.replace(m_query, m_part - m_query, value.data(), value.length());
 		invalidate_fragment();
 	}
 
-	void uri::fragment(const cstring& value)
+	void uri::fragment(std::string_view value)
 	{
 		ensure_fragment();
-		m_uri.replace(m_part, m_uri.length() - m_part, value.c_str(), value.length());
+		m_uri.replace(m_part, m_uri.length() - m_part, value.data(), value.length());
 	}
 
-	cstring remove_filename(cstring path)
+	std::string_view remove_filename(std::string_view path)
 	{
 		auto find = path.rfind('/');
-		if (find == cstring::npos)
+		if (find == std::string_view::npos)
 			return path;
-		return path.subspan(0, find + 1);
+		return path.substr(0, find + 1);
 	}
 
 	uri uri::make_base(const uri& document)
@@ -634,10 +664,10 @@ namespace web {
 
 		auto tmp = document;
 		if (!tmp.has_scheme())
-			tmp = uri { "http://" + tmp.string() };
+			tmp = uri{ "http://" + tmp.string() };
 
-		tmp.fragment(cstring());
-		tmp.query(cstring());
+		tmp.fragment(std::string_view());
+		tmp.query(std::string_view());
 		tmp.path(remove_filename(tmp.path()));
 		tmp.ensure_query();
 		return tmp;
@@ -646,8 +676,17 @@ namespace web {
 
 	uri uri::canonical(const uri& identifier, const uri& base, auth_flag flag)
 	{
-		if (identifier.has_authority())
-			return normal(identifier, flag);
+		if (identifier.has_authority()) {
+			if (identifier.has_scheme() && !identifier.is_scheme_relative())
+				return normal(identifier, flag);
+
+			if (!base.has_scheme())
+				return normal(identifier, flag);
+			// base-scheme://ident-auth/ident-path?ident-query#ident-frag
+			auto temp = identifier;
+			temp.scheme(base.scheme());
+			return normal(std::move(temp), flag);
+		}
 
 		if (identifier.has_scheme()) {
 			if (!base.has_scheme() || tolower(identifier.scheme()) != tolower(base.scheme()))
@@ -665,7 +704,7 @@ namespace web {
 
 		auto bpath = base.path();
 		if (!bpath.empty())
-			return temp.path(base.path() + "/" + path), normal(std::move(temp), flag);
+			return temp.path(to_string(base.path()) + "/" + to_string(path)), normal(std::move(temp), flag);
 		return temp.path(path), normal(std::move(temp), flag);
 	}
 
@@ -700,7 +739,7 @@ namespace web {
 
 			// if default for the scheme, remove
 			if (!auth.port.empty()) {
-				auto port = atoi(auth.port.c_str());
+				auto port = atoi(auth.port.data());
 				auto def = default_port(tmp.scheme());
 				if (port == def)
 					auth.port.clear();
@@ -709,7 +748,7 @@ namespace web {
 			tmp.authority(auth.string(flag));
 		}
 		// PATH: =======================================================================================
-		if (tmp.has_authority() || !tmp.has_scheme()) { 
+		if (tmp.has_authority() || !tmp.has_scheme()) {
 			// the "://" uris will have paths with slashes for sure;
 			// the "no-scheme, no-auth" URIs start with path with slashes (see has_authority());
 			// cannot say that about other paths (e.g. user@server in mailto:user@server)

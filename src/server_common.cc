@@ -96,7 +96,7 @@ namespace web {
 		void forwarded_for(const std::string& v) { remotest = v; }
 		~reporter()
 		{
-			diag dg { req.version(), req.uri().string(web::uri::ui_safe), req.method() };
+			diag dg { req.version(), web::uri::normal(req.uri(), web::uri::ui_safe).string(), req.method() };
 			if (dg.mth == method::other)
 				dg.smth = req.smethod();
 			dg.st = resp.status();
@@ -120,15 +120,19 @@ namespace web {
 			std::lock_guard<std::mutex> lck { io_mtx };
 			std::ostringstream os; os << std::this_thread::get_id();
 
+			auto const path_view = dg.uri.path();
+			auto const query_view = dg.uri.query();
+#define SV_PRINT(sv) static_cast<int>((sv).length()), (sv).data()
+
 			if (remotest.empty()) {
-				fprintf(stderr, "(%s) [%s] %s \"%s%s\" HTTP/%u.%u -- %u\n",
+				fprintf(stderr, "(%s) [%s] %s \"%.*s%.*s\" HTTP/%u.%u -- %u\n",
 					os.str().c_str(), remote.c_str(),
-					method, dg.uri.path().str().c_str(), dg.uri.query().str().c_str(), dg.ver.M_ver(), dg.ver.m_ver(),
+					method, SV_PRINT(path_view), SV_PRINT(query_view), dg.ver.M_ver(), dg.ver.m_ver(),
 					(unsigned)dg.st);
 			} else {
-				fprintf(stderr, "(%s) [%s|%s] %s \"%s%s\" HTTP/%u.%u -- %u\n",
+				fprintf(stderr, "(%s) [%s|%s] %s \"%.*s%.*s\" HTTP/%u.%u -- %u\n",
 					os.str().c_str(), remote.c_str(), remotest.c_str(),
-					method, dg.uri.path().str().c_str(), dg.uri.query().str().c_str(), dg.ver.M_ver(), dg.ver.m_ver(),
+					method, SV_PRINT(path_view), SV_PRINT(query_view), dg.ver.M_ver(), dg.ver.m_ver(),
 					(unsigned)dg.st);
 			}
 		}
@@ -211,7 +215,8 @@ namespace web {
 
 	void server::handle_connection(request& req, response& resp)
 	{
-		auto resource = req.uri().path().str();
+		auto const res_view = req.uri().path();
+		auto resource = std::string{ res_view.data(), res_view.length() };
 
 		for (auto& pair : m_routes.filters()) {
 			if (starts_with(resource, pair.first)) {

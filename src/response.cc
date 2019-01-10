@@ -185,7 +185,7 @@ namespace web {
 			print("<p>See <a href='");
 			print(*loc);
 			print("'>");
-			print(uri { *loc }.string(uri::ui_safe));
+			print(uri::normal(*loc, uri::ui_safe).string());
 			print("</a></p>");
 		}
 
