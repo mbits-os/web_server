@@ -44,6 +44,7 @@ namespace web {
 		struct handler {
 			std::string mask;
 			endpoint_type endpoint;
+			int options;
 		};
 
 		using handlers = std::unordered_map<method, std::vector<handler>>;
@@ -54,15 +55,15 @@ namespace web {
 		std::vector<sub_route> m_routers;
 
 		void surrender(const std::string& prefix, handlers& handlers, shandlers& shandlers, filter_list& middlewares);
-		std::shared_ptr<route> compile(handler& src, int options);
+		std::shared_ptr<route> compile(handler& src);
 	public:
 		static std::shared_ptr<router> make()
 		{
 			return std::make_shared<router>();
 		}
 
-		void add(const std::string& path, const endpoint_type& et, method m = method::get);
-		void add(const std::string& path, const endpoint_type& et, const std::string& other_method);
+		void add(const std::string& path, const endpoint_type& et, method m = method::get, int options = COMPILE_DEFAULT);
+		void add(const std::string& path, const endpoint_type& et, const std::string& other_method, int options = COMPILE_DEFAULT);
 		void append(const std::string& path, const std::shared_ptr<router>& sub);
 
 		template <typename Class, typename... Args>
@@ -73,6 +74,6 @@ namespace web {
 
 		void use(const std::string& path, const std::shared_ptr<middleware_base>& filt);
 
-		compiled compile(int options = COMPILE_DEFAULT);
+		compiled compile();
 	};
 }

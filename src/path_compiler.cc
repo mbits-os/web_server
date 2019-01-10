@@ -157,10 +157,11 @@ namespace web {
 		return out;
 	}
 
-	description description::make(std::vector<key_type>&& tokens, int options)
+	description description::make(std::vector<key_type> const& tokens, int options)
 	{
 		auto strict = (options & COMPILE_STRICT) == COMPILE_STRICT;
 		auto end = (options & COMPILE_END) == COMPILE_END;
+		auto take_rest = (options & COMPILE_TAKE_REST) == COMPILE_TAKE_REST;
 
 		std::string route;
 		std::vector<key_type> keys;
@@ -171,7 +172,25 @@ namespace web {
 			!tokens.back().svalue.empty() &&
 			(tokens.back().svalue.back() == '/');
 
-		for (auto& token : tokens) {
+		auto it = tokens.begin();
+		auto end_it = tokens.end();
+
+		auto rest = [&]() -> key_type const* {
+			if (tokens.empty())
+				return nullptr;
+			auto& last = tokens.back();
+			if (last.flags & KEY_IS_STRING)
+				return nullptr;
+			return &last;
+		}();
+
+		if (!take_rest || endsWithSlash)
+			rest = nullptr;
+		if (rest)
+			--end_it;
+
+		for (; it != end_it; ++it) {
+			auto& token = *it;
 			if (token.flags & KEY_IS_STRING) {
 				route += escapeString(token.svalue);
 				continue;
@@ -196,24 +215,30 @@ namespace web {
 			keys.push_back(token);
 		}
 
-		// In non-strict mode we allow a slash at the end of match. If the path to
-		// match already ends with a slash, we remove it for consistency. The slash
-		// is valid at the end of a path match, not in the middle. This is important
-		// in non-ending mode, where "/test/" shouldn't match "/test//route".
-		if (!strict) {
-			if (endsWithSlash) {
-				route.pop_back(); // '\'
-				route.pop_back(); // '/'
+		if (rest) {
+			route += escapeString(rest->prefix) + "(.*)";
+			keys.push_back(*rest);
+		} else {
+			// In non-strict mode we allow a slash at the end of match. If the path to
+			// match already ends with a slash, we remove it for consistency. The slash
+			// is valid at the end of a path match, not in the middle. This is important
+			// in non-ending mode, where "/test/" shouldn't match "/test//route".
+			if (!strict) {
+				if (endsWithSlash) {
+					route.pop_back(); // '\'
+					route.pop_back(); // '/'
+				}
+				route += "(?:\\/(?=$))?";
 			}
-			route += "(?:\\/(?=$))?";
-		}
 
-		if (end) {
-			route.push_back('$');
-		} else if (!strict || !endsWithSlash) {
-			// In non-ending mode, we need the capturing groups to match as much as
-			// possible by using a positive lookahead to the end or next path segment.
-			route += "(?=\\/|$)";
+			if (end) {
+				route.push_back('$');
+			}
+			else if (!strict || !endsWithSlash) {
+				// In non-ending mode, we need the capturing groups to match as much as
+				// possible by using a positive lookahead to the end or next path segment.
+				route += "(?=\\/|$)";
+			}
 		}
 
 		route = "^" + route;
@@ -225,7 +250,7 @@ namespace web {
 		return make(parse_matcher(mask), options);
 	}
 
-	matcher_type matcher_type::make(description&& tokens, int options)
+	matcher_type matcher_type::make(description const& tokens, int options)
 	{
 		auto flags = std::regex_constants::ECMAScript;
 		if ((options & COMPILE_SENSITIVE) != COMPILE_SENSITIVE)

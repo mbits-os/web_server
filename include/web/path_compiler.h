@@ -24,18 +24,19 @@ namespace web {
 		COMPILE_END = 0x0002,
 		COMPILE_SENSITIVE = 0x0004,
 		COMPILE_OPTIMIZE = 0x0008,
+		COMPILE_TAKE_REST = 0x0010,
 		COMPILE_DEFAULT = /*COMPILE_STRICT | */COMPILE_END | COMPILE_SENSITIVE | COMPILE_OPTIMIZE
 	};
 
 	struct key_type {
-		int         flags;
+		int         flags{};
 		size_t      nvalue;
-		std::string svalue;
-		std::string prefix;
-		std::string delimiter;
-		std::string pattern;
+		std::string svalue{};
+		std::string prefix{};
+		std::string delimiter{};
+		std::string pattern{};
 
-		static key_type as_string(std::string&& value)
+		static key_type as_string(std::string value)
 		{
 			return { KEY_IS_STRING, 0, std::move(value) };
 		}
@@ -52,13 +53,13 @@ namespace web {
 				flags |= KEY_PARTIAL;
 			return *this;
 		}
-		static key_type make(std::string&& value, std::string&& prefix, std::string&& delimiter, std::string&& pattern)
+		static key_type make(std::string value, std::string prefix, std::string delimiter, std::string pattern)
 		{
-			return { 0, 0, value, prefix, delimiter, pattern };
+			return { 0, 0, std::move(value), std::move(prefix), std::move(delimiter), std::move(pattern) };
 		}
-		static key_type make(size_t value, std::string&& prefix, std::string&& delimiter, std::string&& pattern)
+		static key_type make(size_t value, std::string prefix, std::string delimiter, std::string pattern)
 		{
-			return { 0, value, { }, prefix, delimiter, pattern };
+			return { 0, value, { }, std::move(prefix), std::move(delimiter), std::move(pattern) };
 		}
 	};
 
@@ -66,7 +67,7 @@ namespace web {
 		std::string route;
 		std::vector<key_type> keys;
 
-		static description make(std::vector<key_type>&& tokens, int options = COMPILE_DEFAULT);
+		static description make(std::vector<key_type> const& tokens, int options = COMPILE_DEFAULT);
 		static description make(const std::string& mask, int options = COMPILE_DEFAULT);
 	};
 
@@ -80,7 +81,7 @@ namespace web {
 		std::regex regex;
 		const std::vector<key_type> keys;
 
-		static matcher_type make(description&& tokens, int options = COMPILE_DEFAULT);
+		static matcher_type make(description const& tokens, int options = COMPILE_DEFAULT);
 		static matcher_type make(const std::string& mask, int options = COMPILE_DEFAULT);
 
 		bool matches(const std::string& route, std::vector<param>& params) const;

@@ -7,20 +7,20 @@
 #include <cassert>
 
 namespace web {
-	void router::add(const std::string& path, const endpoint_type& et, method m)
+	void router::add(const std::string& path, const endpoint_type& et, method m, int options)
 	{
 		assert(m != method::other);
-		m_handlers[m].push_back({ path, et });
+		m_handlers[m].push_back({ path, et, options });
 	}
 
-	void router::add(const std::string& path, const endpoint_type& et, const std::string& other_method)
+	void router::add(const std::string& path, const endpoint_type& et, const std::string& other_method, int options)
 	{
 		auto textual = other_method;
 		auto m = make_method(textual);
 		if (m == method::other)
-			m_shandlers[textual].push_back({ path, et });
+			m_shandlers[textual].push_back({ path, et, options });
 		else
-			m_handlers[m].push_back({ path, et });
+			m_handlers[m].push_back({ path, et, options });
 	}
 
 	void router::append(const std::string& path, const std::shared_ptr<router>& sub)
@@ -33,12 +33,12 @@ namespace web {
 		m_middleware.push_back({ path, filt });
 	}
 
-	std::shared_ptr<route> router::compile(handler& src, int options)
+	std::shared_ptr<route> router::compile(handler& src)
 	{
-		return std::make_shared<route>(src.mask, std::move(src.endpoint), options);
+		return std::make_shared<route>(src.mask, std::move(src.endpoint), src.options);
 	}
 
-	router::compiled router::compile(int options)
+	router::compiled router::compile()
 	{
 		for (auto& sub : m_routers)
 			sub.sub->surrender(sub.mask, m_handlers, m_shandlers, m_middleware);
@@ -49,14 +49,14 @@ namespace web {
 			auto& dst = out[pair.first];
 			dst.reserve(pair.second.size());
 			for (auto& handler : pair.second)
-				dst.push_back(compile(handler, options));
+				dst.push_back(compile(handler));
 		}
 		sroute_list sout;
 		for (auto& pair : m_shandlers) {
 			auto& dst = sout[pair.first];
 			dst.reserve(pair.second.size());
 			for (auto& handler : pair.second)
-				dst.push_back(compile(handler, options));
+				dst.push_back(compile(handler));
 		}
 		m_handlers.clear();
 		m_shandlers.clear();
