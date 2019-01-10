@@ -119,6 +119,7 @@ namespace web {
 		, public ostream<stream> {
 	public:
 		struct impl {
+			virtual ~impl();
 			virtual void shutdown(stream* src) = 0;
 			virtual bool overflow(stream* src, const void* data, size_t size) = 0;
 			virtual bool underflow(stream* src) = 0;

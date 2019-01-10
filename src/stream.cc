@@ -6,4 +6,5 @@
 #include <web/stream.h>
 
 namespace web {
+	stream::impl::~impl() = default;
 }

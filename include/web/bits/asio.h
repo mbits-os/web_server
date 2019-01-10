@@ -5,7 +5,18 @@
 
 #pragma once
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning (disable:4242)
+#pragma warning (disable:4265)
+#pragma warning (disable:4619)
+#pragma warning (disable:4834)
+#endif
 #include <boost/asio.hpp>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 #include <unordered_set>
 #include <web/delegate.h>
 #include <web/request.h>

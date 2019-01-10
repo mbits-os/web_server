@@ -1,6 +1,65 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 PROJECT(http_server C CXX)
 
+set(WEB_SERVER_WALL_FLAGS ON CACHE BOOL "Compile with -Wall/-W4 warning levels")
+
+if (WEB_SERVER_WALL_FLAGS)
+  if (MSVC)
+    set(ADDITIONAL_WALL_FLAGS
+        /std:c++latest
+        /permissive-
+        /W4
+        /w14242
+        /w14254
+        /w14263
+        /w14265
+        /w14287
+        /we4289
+        /w14296
+        /w14311
+        /w14545
+        /w14546
+        /w14547
+        /w14549
+        /w14555
+        /w14619
+        /w14640
+        /w14826
+        /w14905
+        /w14906
+        /w14928
+        /w14946)
+  else()
+    set(ADDITIONAL_WALL_FLAGS
+        -std=c++17
+        -Wall -Wextra
+        -Wnon-virtual-dtor
+        -Wold-style-cast
+        -Wcast-align
+        -Wunused
+        -Woverloaded-virtual
+        -Wpedantic
+        -Wconversion
+        -Wsign-conversion
+        -Wnull-dereference
+        -Wdouble-promotion
+        -Wformat=2
+    )
+    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+      list(APPEND ADDITIONAL_WALL_FLAGS -fcolor-diagnostics) # -Wlifetime
+    else()
+      list(APPEND ADDITIONAL_WALL_FLAGS
+        -fdiagnostics-color
+        -Wmisleading-indentation
+        -Wduplicated-cond
+        -Wduplicated-branches
+        -Wlogical-op
+        -Wuseless-cast
+        )
+    endif()
+  endif()
+endif()
+
 SET(PREFIX ${CMAKE_INSTALL_PREFIX})
 SET(EXEC_PREFIX "${PREFIX}")
 SET(INCLUDEDIR "${PREFIX}/include")
@@ -17,6 +76,7 @@ SET(SRCS
     src/request_parser.cc
     src/response.cc
     src/router.cc
+    src/stream.cc
     src/server_common.cc
     src/uri.cc
 
@@ -49,34 +109,28 @@ SET(Boost_USE_STATIC_LIBS      OFF)
 SET(Boost_USE_STATIC_RUNTIME   OFF)
 endif()
 find_package(Boost REQUIRED system)
+LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 endif()
 
 if (NOT Threads_FOUND)
 find_package(Threads)
 endif()
 
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
-INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/include")
-INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
-LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
-
-ADD_DEFINITIONS(-DHTTP_USE_ASIO)
-
-
-IF (WIN32)
-ADD_DEFINITIONS(-D_WIN32_WINNT=0x0501)
-SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${EXTRA_CFLAGS} /MTd")
-SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${EXTRA_CFLAGS} /MT")
-SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
-ELSE()
-ADD_DEFINITIONS(-fno-rtti)
-ENDIF()
-
 ADD_LIBRARY(http_server STATIC ${SRCS})
+TARGET_INCLUDE_DIRECTORIES(http_server
+  PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${Boost_INCLUDE_DIRS})
+TARGET_COMPILE_OPTIONS(http_server PUBLIC -DHTTP_USE_ASIO)
+IF(MSVC)
+TARGET_COMPILE_OPTIONS(http_server PUBLIC -D_WIN32_WINNT=0x0501 -D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
+ENDIF()
 TARGET_LINK_LIBRARIES(http_server ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-SET_PROPERTY(TARGET http_server PROPERTY CXX_STANDARD 14)
+SET_TARGET_PROPERTIES(http_server PROPERTIES CXX_STANDARD 17 CXX_EXTENSIONS OFF)
 
 
 ADD_LIBRARY(middleware_files STATIC middleware/files/files.h middleware/files/files.cc)
-TARGET_LINK_LIBRARIES(middleware_files ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-SET_PROPERTY(TARGET middleware_files PROPERTY CXX_STANDARD 14)
+TARGET_INCLUDE_DIRECTORIES(middleware_files
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/middleware
+  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+SET_TARGET_PROPERTIES(middleware_files PROPERTIES CXX_STANDARD 17 CXX_EXTENSIONS OFF)
