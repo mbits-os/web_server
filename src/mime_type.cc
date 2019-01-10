@@ -13,7 +13,7 @@ namespace web {
 		//< Text mimes
 		{ "html", "text/html" },
 		{ "htm" , "text/html" },
-		{ "js"  , "text/javascript" },
+		{ "js"  , "application/javascript" },
 		{ "txt" , "text/plain" },
 		{ "css" , "text/css" },
 		{ "xml" , "text/xml" },
