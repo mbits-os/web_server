@@ -10,8 +10,12 @@
 #endif
 
 #include <web/router.h>
+#include <optional>
 
 namespace web {
+#ifdef HTTP_USE_ASIO
+	using asio::endpoint;
+#endif
 	class server {
 		router::compiled m_routes;
 #ifdef HTTP_USE_ASIO
@@ -23,7 +27,7 @@ namespace web {
 		server();
 		void set_server(const std::string&);
 		void set_routes(router& router);
-		bool listen(short port);
+		std::optional<endpoint> listen(unsigned short port);
 		void run();
 		void on_connection(stream& io, bool secure);
 	};

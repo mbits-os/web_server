@@ -119,6 +119,11 @@ namespace web { namespace asio {
 		}
 	};
 
+	struct endpoint {
+		std::string interface{};
+		unsigned short port{};
+	};
+
 	class service {
 		io_service m_service;
 		signal_set m_signals;
@@ -129,7 +134,7 @@ namespace web { namespace asio {
 		void next_accept();
 	public:
 		service(delegate<void(stream&, bool)> onconnection);
-		void setup(int port);
+		endpoint setup(unsigned short port);
 		void server(const std::string& value) { m_server = value; }
 		const std::string& server() const { return m_server; }
 

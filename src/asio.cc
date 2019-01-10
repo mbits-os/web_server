@@ -188,7 +188,7 @@ namespace web { namespace asio {
 	template <typename StreamIter>
 	stream_t<StreamIter> mk_stream(StreamIter it) { return it; }
 
-	void service::setup(int port)
+	endpoint service::setup(unsigned short port)
 	{
 		ip::tcp::resolver resolver(m_service);
 		ip::tcp::endpoint endpoint(ip::tcp::v4(), port);
@@ -197,12 +197,9 @@ namespace web { namespace asio {
 		m_acceptor.set_option(ip::tcp::acceptor::reuse_address(true));
 		m_acceptor.bind(endpoint);
 		m_acceptor.listen(socket_base::max_connections);
-		port = m_acceptor.local_endpoint().port();
-		std::string iface = ip::host_name();
 
-		printf("\nStarting server at http://%s:%u/\n", iface.c_str(), port);
-		printf("Quit the server with ^C.\n\n");
 		next_accept();
+		return web::asio::endpoint{ ip::host_name(), m_acceptor.local_endpoint().port() };
 	}
 
 	void service::next_accept()
@@ -235,15 +232,14 @@ namespace web {
 		m_svc.server(name);
 	}
 
-	bool server::listen(short port)
+	std::optional<endpoint> server::listen(unsigned short port)
 	{
 		try {
-			m_svc.setup(port);
-			return true;
+			return m_svc.setup(port);
 		} catch (std::exception& e) {
 			fprintf(stderr, "server::listen(): exception: %s\n", e.what());
 		}
-		return false;
+		return std::nullopt;
 	}
 
 	void server::run()
