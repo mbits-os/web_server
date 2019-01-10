@@ -129,6 +129,8 @@ namespace web {
 		case header::Via: return "Via";
 		case header::Warning: return "Warning";
 		case header::WWW_Authenticate: return "WWW-Authenticate";
+		default:
+			break;
 		}
 
 		return nullptr;

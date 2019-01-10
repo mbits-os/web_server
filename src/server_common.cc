@@ -205,7 +205,7 @@ namespace web {
 			return;
 
 		char* bad = nullptr;
-		auto length = std::strtoull(slen->c_str(), &bad, 10);
+		auto length = static_cast<size_t>(std::strtoull(slen->c_str(), &bad, 10));
 		if (bad && *bad)
 			return;
 

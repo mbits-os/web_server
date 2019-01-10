@@ -57,15 +57,3 @@ namespace web {
 		const std::string* host() const { return find_front(header::Host); }
 	};
 }
-
-
-namespace std {
-	template <>
-	struct hash<web::method> : public unary_function<web::method, size_t> {
-		using int_t = typename std::underlying_type<web::method>::type;
-		size_t operator()(web::method key) const noexcept(noexcept(hash<int_t>{}(0)))
-		{
-			return hash<int_t>{}((int_t)key);
-		}
-	};
-};
