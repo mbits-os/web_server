@@ -31,9 +31,9 @@ namespace web {
 
 			std::shared_ptr<route> find(method m, const std::string& route, std::vector<param>& params);
 			std::shared_ptr<route> find(const std::string& other_method, const std::string& route, std::vector<param>& params);
-			const route_list& routes() { return m_routes; }
-			const sroute_list& sroutes() { return m_sroutes; }
-			const auto& filters() { return m_middleware; }
+			const route_list& routes() const { return m_routes; }
+			const sroute_list& sroutes() const { return m_sroutes; }
+			const auto& filters() const { return m_middleware; }
 		};
 	private:
 		struct sub_route {
@@ -64,6 +64,15 @@ namespace web {
 
 		void add(const std::string& path, const endpoint_type& et, method m = method::get, int options = COMPILE_DEFAULT);
 		void add(const std::string& path, const endpoint_type& et, const std::string& other_method, int options = COMPILE_DEFAULT);
+
+		void get(const std::string& path, const endpoint_type& et, int options = COMPILE_DEFAULT) {
+			add(path, et, method::get, options);
+		}
+		void getish(const std::string& path, const endpoint_type& et, int options = COMPILE_DEFAULT) {
+			add(path, et, method::get, options);
+			add(path, et, method::head, options);
+		}
+
 		void append(const std::string& path, const std::shared_ptr<router>& sub);
 
 		template <typename Class, typename... Args>

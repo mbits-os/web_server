@@ -6,6 +6,7 @@
 #include <web/response.h>
 #include <web/request.h>
 #include <web/mime_type.h>
+#include <web/server.h>
 #include <web/uri.h>
 #include <sys/stat.h>
 #include <ctime>
@@ -26,6 +27,12 @@ namespace web {
 	{
 		if (!has(header::Content_Type))
 			set(header::Content_Type, "text/html; charset=UTF-8");
+		if (!has(header::Server)) {
+			auto srv = this->m_req_ref->server();
+			auto const& server = srv->get_server();
+			if (!server.empty())
+				set(header::Server, server);
+		}
 
 		m_headers_sent = true;
 
@@ -52,6 +59,14 @@ namespace web {
 			}
 		}
 		ll_print("\r\n");
+	}
+
+	void response::set(const header_key& key, time_t value)
+	{
+		char buf[1000];
+		auto tme = *gmtime(&value);
+		strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", &tme);
+		set(key, buf);
 	}
 
 	struct fcloser {
@@ -86,18 +101,13 @@ namespace web {
 
 		set(header::Content_Length, std::to_string(st.st_size));
 		set(header::Content_Type, mime_type(path));
-		{
-			char buf[1000];
-			auto tme = *gmtime(&st.st_mtime);
-			strftime(buf, sizeof(buf), "%a, %d %b %Y %H:%M:%S GMT", &tme);
-			set(header::Last_Modified, buf);
-
-			if (!only_head) {
-				auto if_modified = m_req_ref->find_front(header::If_Modified_Since);
-				if (if_modified && *if_modified == buf) {
-					status(web::status::not_modified);
-					only_head = true;
-				}
+		set(header::Last_Modified, st.st_mtime);
+		if (!only_head) {
+			auto last_mod = m_headers.find_front(header::Last_Modified);
+			auto if_modified = m_req_ref->find_front(header::If_Modified_Since);
+			if (if_modified && *if_modified == *last_mod) {
+				status(web::status::not_modified);
+				only_head = true;
 			}
 		}
 

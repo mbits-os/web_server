@@ -10,10 +10,29 @@ namespace web {
 	void server::set_routes(router& router)
 	{
 		m_routes = router.compile();
+	}
 
+	void server::print(FILE* out) const
+	{
+		bool has_filters = false;
 		for (auto& pair : m_routes.filters()) {
-			printf("[FILTER] %s\n", pair.first.c_str());
+			fprintf(out, "[FILTER] %s\n", pair.first.c_str());
+			has_filters = true;
 		}
+		if (has_filters) fprintf(out, "\n");
+
+		std::vector<std::pair<std::string, std::string>> list;
+		auto add_route = [&](std::string const& path, auto const& method) {
+			auto it = std::find_if(list.begin(), list.end(),
+				[&](auto const& pair) { return pair.first == path; }
+			);
+			if (it == list.end())
+				list.emplace_back(path, method);
+			else {
+				it->second.push_back('|');
+				it->second.append(method);
+			}
+		};
 
 		for (auto& pair : m_routes.routes()) {
 			const char* method = nullptr;
@@ -30,13 +49,16 @@ namespace web {
 				assert(false && "unexpected method (other)");
 			}
 			for (auto& handler : pair.second)
-				printf("%s %s\n", method, handler->mask().c_str());
+				add_route(handler->mask(), method);
 		}
 		for (auto& pair : m_routes.sroutes()) {
 			for (auto& handler : pair.second)
-				printf("%s %s\n", pair.first.c_str(), handler->mask().c_str());
+				add_route(handler->mask(), pair.first);
 		}
 
+		for (auto const&[path, methods] : list)
+			fprintf(out, "[ROUTE] %s %s\n", methods.c_str(), path.c_str());
+		if (!list.empty()) fprintf(out, "\n");
 	}
 
 	inline bool starts_with(const std::string& value, const std::string& prefix)
@@ -122,6 +144,7 @@ namespace web {
 
 			auto const path_view = dg.uri.path();
 			auto const query_view = dg.uri.query();
+
 #define SV_PRINT(sv) static_cast<int>((sv).length()), (sv).data()
 
 			if (remotest.empty()) {
@@ -159,7 +182,7 @@ namespace web {
 				break;
 			}
 
-			request req;
+			request req{ this };
 			response resp { &io, &req };
 			auto local = io.local_endpoint();
 			auto remote = io.remote_endpoint();

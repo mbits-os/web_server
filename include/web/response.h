@@ -88,28 +88,18 @@ namespace web {
 		bool has(const header_key& key) const {
 			return m_headers.has(key);
 		}
-		void add(const header_key& key, const std::string& value)
-		{
-			throw_if_sent("add(header)");
-			m_headers.add(key, value);
-		}
-		void add(const header_key& key, std::string&& value)
+		void add(const header_key& key, std::string value)
 		{
 			throw_if_sent("add(header)");
 			m_headers.add(key, std::move(value));
 		}
-		void set(const header_key& key, const std::string& value)
-		{
-			throw_if_sent("set(header)");
-			m_headers.erase(key);
-			m_headers.add(key, value);
-		}
-		void set(const header_key& key, std::string&& value)
+		void set(const header_key& key, std::string value)
 		{
 			throw_if_sent("set(header)");
 			m_headers.erase(key);
 			m_headers.add(key, std::move(value));
 		}
+		void set(const header_key& key, time_t value);
 		void erase(const header_key& key)
 		{
 			throw_if_sent("erase(header)");

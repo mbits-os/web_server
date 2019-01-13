@@ -38,7 +38,10 @@ namespace web {
 		std::vector<param> m_params;
 		web::headers m_headers;
 		std::vector<char> m_payload;
+		web::server* m_server;
 	public:
+		request(web::server* srv) : m_server{ srv } {}
+		web::server const* server() const { return m_server; }
 		const std::string& smethod() const { return m_smethod; }
 		web::method method() const { return m_method; }
 		const web::uri& uri() const { return m_uri; }

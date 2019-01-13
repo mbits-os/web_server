@@ -26,7 +26,9 @@ namespace web {
 	public:
 		server();
 		void set_server(const std::string&);
+		const std::string& get_server() const { return m_svc.server(); }
 		void set_routes(router& router);
+		void print(FILE* out = stdout) const;
 		std::optional<endpoint> listen(unsigned short port);
 		void run();
 		void on_connection(stream& io, bool secure);
