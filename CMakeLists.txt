@@ -70,6 +70,7 @@ SET(VERSION 0.0.1)
 SET(SRCS
     src/asio.cc
     src/headers.cc
+    src/log.cc
     src/mime_type.cc
     src/path_compiler.cc
     src/request.cc
@@ -83,6 +84,7 @@ SET(SRCS
     include/web/bits/asio.h
     include/web/delegate.h
     include/web/headers.h
+    include/web/log.h
     include/web/middleware.h
     include/web/mime_type.h
     include/web/path_compiler.h

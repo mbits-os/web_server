@@ -4,6 +4,7 @@
  */
 
 #include <web/server.h>
+#include <web/log.h>
 #include <mutex>
 
 namespace web {
@@ -174,11 +175,15 @@ namespace web {
 	{
 		stream_src src { &io };
 
+		unsigned conn_no{};
 		while (io.is_open()) {
+			io.conn_no(++conn_no);
+
 			request_parser parser;
 			auto ret = parser.decode(src);
 			if (ret != parsing::separator) {
 				io.shutdown();
+				LOG_NFO() << "[CONN " << conn_no << "] ERROR";
 				break;
 			}
 
@@ -188,6 +193,7 @@ namespace web {
 			auto remote = io.remote_endpoint();
 			reporter rep(remote.host + ":" + std::to_string(remote.port), req, resp);
 			if (!parser.extract(secure, req, local.port, local.host)) {
+				LOG_NFO() << "[CONN " << conn_no << "] REQ " << remote.host << ":" << remote.port << " ERROR";
 				try {
 					resp.version(http_version::http_1_1);
 					resp.stock_response(status::bad_request);
@@ -198,26 +204,73 @@ namespace web {
 				break;
 			}
 
-			try {
+			{
+				diag dg{ req.version(), web::uri::normal(req.uri(), web::uri::ui_safe).string(), req.method() };
+				if (dg.mth == method::other)
+					dg.smth = req.smethod();
+				dg.st = resp.status();
+
+				const char* method = nullptr;
+				switch (dg.mth) {
+				case web::method::connect: method = "CONNECT"; break;
+				case web::method::del: method = "DELETE"; break;
+				case web::method::get: method = "GET"; break;
+				case web::method::head: method = "HEAD"; break;
+				case web::method::options: method = "OPTIONS"; break;
+				case web::method::post: method = "POST"; break;
+				case web::method::put: method = "PUT"; break;
+				case web::method::trace: method = "TRACE"; break;
+				default:
+					method = dg.smth.c_str();
+				}
+
+				auto const path_view = dg.uri.path();
+				auto const query_view = dg.uri.query();
+
+				LOG_NFO() << "[CONN " << conn_no << "] REQ  | " << remote.host << ":" << remote.port << " | "
+				          << method << " " << path_view << query_view
+				          << " HTTP/" << dg.ver.M_ver() << "." << dg.ver.m_ver();
+				for (auto const& [header, values] : req.headers()) {
+					auto name = header.name();
+					if (!name) name = "(null)";
+					for (auto const& value : values)
+						LOG_NFO() << "[CONN " << conn_no << "]      | " << name << ": " << value;
+				}
+
 				auto fwdd = req.find_front(
 					web::header_key::make("x-forwarded-for")
-					);
-				if (fwdd)
-					rep.forwarded_for(*fwdd);
+				);
 
+				if (fwdd) {
+					rep.forwarded_for(*fwdd);
+				}
+			}
+
+			try {
 				load_content(io, req);
 				resp.version(req.version());
 				handle_connection(req, resp);
 				resp.finish();
+				LOG_NFO() << "[CONN " << conn_no << "] RESP | " << remote.host << ":" << remote.port
+				          << " | HTTP/" << resp.version().M_ver() << "." << resp.version().m_ver()
+				          << " " << (unsigned)resp.status() << " " << status_name(resp.status());
+				for (auto const&[header, values] : resp.headers()) {
+					auto name = header.name();
+					if (!name) name = "(null)";
+					for (auto const& value : values)
+						LOG_NFO() << "[CONN " << conn_no << "]      | " << name << ": " << value;
+				}
 			} catch (response::write_exception&) {
 				io.shutdown();
 				break;
 			}
 
 			if (!should_keep_alive(req)) {
+				LOG_NFO() << conn_no << ". shutdown : don't keep alive";
 				io.shutdown();
 				break;
 			}
+			LOG_NFO() << "NEXT ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~";
 		}
 	}
 

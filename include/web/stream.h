@@ -11,7 +11,7 @@
 #include <cstring>
 
 namespace web {
-	template <typename Final, size_t BufferLength = 512>
+	template <typename Final, size_t BufferLength = 4192>
 	class ostream {
 		size_t m_write_ptr = 0;
 		std::array<char, BufferLength> m_output;
@@ -121,8 +121,8 @@ namespace web {
 		struct impl {
 			virtual ~impl();
 			virtual void shutdown(stream* src) = 0;
-			virtual bool overflow(stream* src, const void* data, size_t size) = 0;
-			virtual bool underflow(stream* src) = 0;
+			virtual bool overflow(stream* src, const void* data, size_t size, unsigned conn) = 0;
+			virtual bool underflow(stream* src, unsigned conn) = 0;
 			virtual bool is_open(stream* src) = 0;
 			virtual endpoint_t local_endpoint(stream* src) = 0;
 			virtual endpoint_t remote_endpoint(stream* src) = 0;
@@ -139,15 +139,16 @@ namespace web {
 		{
 			m_impl.shutdown(this);
 		}
+		void conn_no(unsigned val) { conn_ = val; }
 		bool overflow()
 		{
 			auto data = write_data();
-			return m_impl.overflow(this, std::get<0>(data), std::get<1>(data));
+			return m_impl.overflow(this, std::get<0>(data), std::get<1>(data), conn_);
 		}
 
 		bool underflow()
 		{
-			return m_impl.underflow(this);
+			return m_impl.underflow(this, conn_);
 		}
 
 		bool is_open()
@@ -166,5 +167,6 @@ namespace web {
 		}
 	private:
 		impl& m_impl;
+		unsigned conn_{ 0 };
 	};
 }

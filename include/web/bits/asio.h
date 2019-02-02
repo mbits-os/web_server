@@ -19,6 +19,7 @@
 
 #include <unordered_set>
 #include <web/delegate.h>
+#include <web/log.h>
 #include <web/request.h>
 #include <web/response.h>
 #include <web/stream.h>
@@ -59,18 +60,22 @@ namespace web { namespace asio {
 				int status = running;
 			};
 
-			void write_data(RX& rx);
-			void read_data(TX& tx);
+			void write_data(RX& rx, unsigned tid, unsigned conn);
+			void read_data(TX& tx, unsigned tid, unsigned conn);
 		public:
 			asio_stream(io_service& io, connection* parent)
 				: m_socket { io }
 				, m_parent { parent }
 			{
+				LOG_NFO() << "asio_stream::asio_stream(this:" << this << ")";
+			}
+			~asio_stream() {
+				LOG_NFO() << "asio_stream::~asio_stream(this:" << this << ")";
 			}
 
 			void shutdown(stream*) override;
-			bool overflow(stream* src, const void* data, size_t size) override;
-			bool underflow(stream* src) override;
+			bool overflow(stream* src, const void* data, size_t size, unsigned conn) override;
+			bool underflow(stream* src, unsigned conn) override;
 			bool is_open(stream*) override;
 			endpoint_t remote_endpoint(stream*) override;
 			endpoint_t local_endpoint(stream*) override;
@@ -90,6 +95,7 @@ namespace web { namespace asio {
 		connection(const connection&) = delete;
 		connection& operator=(const connection&) = delete;
 		explicit connection(io_service& io, connection_manager& manager);
+		~connection();
 
 		ip::tcp::socket& socket() { return m_stream.socket(); }
 
@@ -134,6 +140,7 @@ namespace web { namespace asio {
 		void next_accept();
 	public:
 		service(delegate<void(stream&, bool)> onconnection);
+		~service();
 		endpoint setup(unsigned short port);
 		void server(const std::string& value) { m_server = value; }
 		const std::string& server() const { return m_server; }
