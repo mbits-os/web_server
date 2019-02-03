@@ -25,20 +25,8 @@ namespace web { namespace middleware {
 		}
 	}
 
-	middleware_base::result files::handle(request& req, response& resp)
+	middleware_base::result files::file_helper(std::string const & path, request& req, response& resp)
 	{
-		auto const res_view = req.uri().path();
-#ifdef WIN32
-		auto resource = std::string{ res_view.data(), res_view.length() };
-		for (auto& c : resource) {
-			if (c == '/')
-				c = '\\';
-		}
-		auto path = m_root + resource;
-#else
-		auto path = m_root + std::string{ res_view.data(), res_view.length() };
-#endif
-
 		struct stat st;
 		if (!stat(path.c_str(), &st)) {
 			auto mode = st.st_mode & S_IFMT;
@@ -80,5 +68,22 @@ namespace web { namespace middleware {
 		}
 
 		return carry_on;
+	}
+
+	middleware_base::result files::handle(request& req, response& resp)
+	{
+		auto const res_view = req.uri().path();
+#ifdef WIN32
+		auto resource = std::string{ res_view.data(), res_view.length() };
+		for (auto& c : resource) {
+			if (c == '/')
+				c = '\\';
+		}
+		auto path = m_root + resource;
+#else
+		auto path = m_root + std::string{ res_view.data(), res_view.length() };
+#endif
+
+		return file_helper(path, req, resp);
 	}
 }}

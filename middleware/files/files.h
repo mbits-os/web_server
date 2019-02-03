@@ -10,7 +10,10 @@
 
 namespace web { namespace middleware {
 	class files : public middleware_base {
-		std::string m_root;
+		std::string m_root{};
+	protected:
+		static result file_helper(std::string const & root, request& req, response& resp);
+		files() = default;
 	public:
 		files(const std::string& root);
 		result handle(request& req, response& resp) override;
