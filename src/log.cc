@@ -9,7 +9,7 @@
 // #include <unistd.h>
 #define HAS_COLORS 1
 #else
-#define HAS_COLORS 0
+#define HAS_COLORS 1
 #endif
 
 #include <atomic>
@@ -63,10 +63,13 @@ std::string logging::init_line(bool with_colors) {
 		<< std::setw(3) << now.count() << " [";
 
 	auto const id = get_thid();
-	if (id)
-		prefix << "#" << id;
-	else
-		prefix << "Main";
+	if (id) {
+		char buffer[20];
+		snprintf(buffer, sizeof(buffer), "#%u", id);
+		prefix << std::right << std::setw(5) << std::setfill(' ') << buffer << ' ';
+	} else {
+		prefix << " Main ";
+	}
 
 	prefix << "] ";
 
@@ -81,10 +84,10 @@ std::string logging::init_line(bool with_colors) {
 		}
 #endif
 		const char* cat =
-			verbosity_ == 0 ? "info" : verbosity_ == 1 ? "debug" : "verbose";
+			verbosity_ == 0 ? "INF" : verbosity_ == 1 ? "DBG" : "VRB";
 		prefix << color << cat;
 		if (verbosity_ > 2)
-			prefix << '-' << verbosity_;
+			prefix << '/' << verbosity_;
 		break;
 	}
 	case warning:
@@ -92,23 +95,24 @@ std::string logging::init_line(bool with_colors) {
 		if (with_colors)
 			color = "\033[1;49;33m";
 #endif
-		prefix << color << "warning";
+		prefix << color << "WRN";
 		break;
 	case error:
 #if HAS_COLORS
 		if (with_colors)
 			color = "\033[1;49;31m";
 #endif
-		prefix << color << "error";
+		prefix << color << "ERR";
 		break;
 	}
 
 #if HAS_COLORS
-	prefix << ": \033[1;49;30m[" << shorten(file_) << ':' << line_
-		<< "]\033[0m > ";
-#else
-	prefix << ": [" << shorten(file_) << ':' << line_ << "] > ";
+	if (with_colors)
+		prefix << " \033[1;49;30m[" << shorten(file_) << ':' << line_
+			<< "]\033[0m > ";
+	else
 #endif
+		prefix << " [" << shorten(file_) << ':' << line_ << "] > ";
 	return prefix.str();
 }
 
@@ -159,16 +163,16 @@ void logging::output(const std::string& message) {
 		prefix << file_ << '(' << line_ << "): ";
 		switch (lvl_) {
 		case debug: {
-			prefix << (verbosity_ == 0 ? "info" : verbosity_ == 1 ? "debug" : "verbose");
+			prefix << (verbosity_ == 0 ? "INF" : verbosity_ == 1 ? "DBG" : "VRB");
 			if (verbosity_ > 2)
-				prefix << '-' << verbosity_;
+				prefix << '/' << verbosity_;
 			break;
 		}
 		case warning:
-			prefix << "warning";
+			prefix << "WRN";
 			break;
 		case error:
-			prefix << "error";
+			prefix << "ERR";
 			break;
 		}
 
