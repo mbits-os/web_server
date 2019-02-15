@@ -67,10 +67,10 @@ namespace web { namespace asio {
 				: m_socket { io }
 				, m_parent { parent }
 			{
-				LOG_NFO() << "asio_stream::asio_stream(this:" << this << ")";
+				LOG_DBG2() << "asio_stream::asio_stream(this:" << this << ")";
 			}
 			~asio_stream() {
-				LOG_NFO() << "asio_stream::~asio_stream(this:" << this << ")";
+				LOG_DBG2() << "asio_stream::~asio_stream(this:" << this << ")";
 			}
 
 			void shutdown(stream*) override;

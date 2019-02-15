@@ -16,11 +16,11 @@ namespace web { namespace asio {
 		async_write(m_socket, buffer(rx.data, rx.transferred), [&, this, tid, conn](error_code ec, std::size_t bytes_transferred) {
 			if (ec) {
 				rx.status = failed;
-				LOG_NFO() << "asio_stream::write_data(this:" << this << ", rx, #" << tid << "." << conn << ") -- failed: " << ec.message();
+				LOG_DBG2() << "asio_stream::write_data(this:" << this << ", rx, #" << tid << "." << conn << ") -- failed: " << ec.message();
 			} else {
 				rx.transferred = bytes_transferred;
 				rx.status = succeeded;
-				LOG_NFO() << "asio_stream::write_data(this:" << this << ", rx, #" << tid << "." << conn << ") --> " << bytes_transferred;
+				LOG_DBG2() << "asio_stream::write_data(this:" << this << ", rx, #" << tid << "." << conn << ") --> " << bytes_transferred;
 			}
 			m_cv.notify_one();
 		});
@@ -31,11 +31,11 @@ namespace web { namespace asio {
 		m_socket.async_read_some(buffer(tx.data), [&, this, tid, conn](error_code ec, std::size_t bytes_transferred) {
 			if (ec) {
 				tx.status = failed;
-				LOG_NFO() << "asio_stream::read_data(this:" << this << ", tx, #" << tid << "." << conn << ") -- failed: " << ec.message();
+				LOG_DBG2() << "asio_stream::read_data(this:" << this << ", tx, #" << tid << "." << conn << ") -- failed: " << ec.message();
 			} else {
 				tx.transferred = bytes_transferred;
 				tx.status = succeeded;
-				LOG_NFO() << "asio_stream::read_data(this:" << this << ", tx, #" << tid << "." << conn << ") --> " << bytes_transferred;
+				LOG_DBG2() << "asio_stream::read_data(this:" << this << ", tx, #" << tid << "." << conn << ") --> " << bytes_transferred;
 			}
 			m_cv.notify_one();
 		});
@@ -50,9 +50,9 @@ namespace web { namespace asio {
 
 		auto shared = m_parent->shared_from_this();
 		m_socket.get_io_service().post([parent = m_parent, shared, this, src] {
-			LOG_NFO() << "asio_stream::shutdown(this:" << this << ", src:" << src << ")::lambda";
+			LOG_DBG2() << "asio_stream::shutdown(this:" << this << ", src:" << src << ")::lambda";
 			parent->shutdown();
-			LOG_NFO() << "asio_stream::shutdown(this:" << this << ", src:" << src << ") -- done";
+			LOG_DBG2() << "asio_stream::shutdown(this:" << this << ", src:" << src << ") -- done";
 		});
 	}
 
@@ -60,7 +60,7 @@ namespace web { namespace asio {
 	{
 		std::unique_lock<std::mutex> lock { m_mtx };
 
-		LOG_NFO() << "asio_stream::overflow(this:" << this << ", src:" << src << ", data:" << data << ", size:" << size << ")";
+		LOG_DBG2() << "asio_stream::overflow(this:" << this << ", src:" << src << ", data:" << data << ", size:" << size << ")";
 
 		RX rx;
 		rx.data = data;
@@ -74,11 +74,11 @@ namespace web { namespace asio {
 
 		m_cv.wait(lock, [&] { return rx.status != running; });
 		if (rx.status == succeeded) {
-			LOG_NFO() << "asio_stream::overflow(this:" << this << ", src:" << src << ", data:" << data << ", size:" << size << ") -- success";
+			LOG_DBG2() << "asio_stream::overflow(this:" << this << ", src:" << src << ", data:" << data << ", size:" << size << ") -- success";
 			src->flushed_write();
 			return rx.transferred == size;
 		} else {
-			LOG_NFO() << "asio_stream::overflow(this:" << this << ", src:" << src << ", data:" << data << ", size:" << size << ") -- failed, rx.status:" << static_cast<int>(rx.status);
+			LOG_DBG2() << "asio_stream::overflow(this:" << this << ", src:" << src << ", data:" << data << ", size:" << size << ") -- failed, rx.status:" << static_cast<int>(rx.status);
 			return false;
 		}
 	}
@@ -87,7 +87,7 @@ namespace web { namespace asio {
 	{
 		std::unique_lock<std::mutex> lock { m_mtx };
 
-		LOG_NFO() << "asio_stream::undeflow(this:" << this << ", src:" << src << ")";
+		LOG_DBG2() << "asio_stream::undeflow(this:" << this << ", src:" << src << ")";
 
 		TX tx;
 		auto shared = m_parent->shared_from_this();
@@ -98,11 +98,11 @@ namespace web { namespace asio {
 
 		m_cv.wait(lock, [&] { return tx.status != running; });
 		if (tx.status == succeeded) {
-			LOG_NFO() << "asio_stream::undeflow(this:" << this << ", src:" << src << ") -- success";
+			LOG_DBG2() << "asio_stream::undeflow(this:" << this << ", src:" << src << ") -- success";
 			src->refill_read(tx.data.data(), tx.transferred);
 			return !!tx.transferred;
 		} else {
-			LOG_NFO() << "asio_stream::undeflow(this:" << this << ", src:" << src << ") -- failed, tx.status:" << static_cast<int>(tx.status);
+			LOG_DBG2() << "asio_stream::undeflow(this:" << this << ", src:" << src << ") -- failed, tx.status:" << static_cast<int>(tx.status);
 			return false;
 		}
 	}
@@ -125,7 +125,7 @@ namespace web { namespace asio {
 
 	void connection::asio_stream::close()
 	{
-		LOG_NFO() << "asio_stream::close(this:" << this << ") -------------------------------------------------------";
+		LOG_DBG2() << "asio_stream::close(this:" << this << ") -------------------------------------------------------";
 		socket_aborting = true;
 		m_socket.close();
 	}
@@ -134,22 +134,22 @@ namespace web { namespace asio {
 		: m_stream { io, this }
 		, m_connection_manager { manager }
 	{
-		LOG_NFO() << "connection::connection(this:" << this << ")";
+		LOG_DBG2() << "connection::connection(this:" << this << ")";
 	}
 
 	connection::~connection()
 	{
-		LOG_NFO() << "connection::~connection(this:" << this << ")";
+		LOG_DBG2() << "connection::~connection(this:" << this << ")";
 	}
 
 	void connection::start()
 	{
-		LOG_NFO() << "connection::start(this:" << this << ")";
+		LOG_DBG2() << "connection::start(this:" << this << ")";
 		auto shared = shared_from_this();
 		m_th = std::thread([this, shared] {
-			LOG_NFO() << "START =============================================";
+			LOG_DBG2() << "START =============================================";
 			handle(false);
-			LOG_NFO() << "STOP ----------------------------------------------";
+			LOG_DBG2() << "STOP ----------------------------------------------";
 		});
 	}
 
@@ -161,45 +161,45 @@ namespace web { namespace asio {
 
 	void connection::stop()
 	{
-		LOG_NFO() << "connection::stop(this:" << this << ")";
+		LOG_DBG2() << "connection::stop(this:" << this << ")";
 		auto shared = shared_from_this();
 		m_stream.close();
 		m_stream.socket().get_io_service().post([this, shared] {
-			LOG_NFO() << "connection::stop(this:" << this << ")::lambda -- "
+			LOG_DBG2() << "connection::stop(this:" << this << ")::lambda -- "
 					  << (m_th.joinable() ? "" : "non ") << "joinable";
 			if (m_th.joinable())
 				m_th.join();
-			LOG_NFO() << "connection::stop(this:" << this << ")::lambda/done";
+			LOG_DBG2() << "connection::stop(this:" << this << ")::lambda/done";
 		});
 	}
 
 	void connection::shutdown()
 	{
-		LOG_NFO() << "connection::shutdown(this:" << this << ")";
+		LOG_DBG2() << "connection::shutdown(this:" << this << ")";
 		m_connection_manager.stop(shared_from_this());
 	}
 
 	void connection_manager::start(const std::shared_ptr<connection>& c)
 	{
-		LOG_NFO() << "connection_manager::start(this:" << this << ", c:" << c.get() << ":" << c.use_count() << ")";
+		LOG_DBG2() << "connection_manager::start(this:" << this << ", c:" << c.get() << ":" << c.use_count() << ")";
 		m_connections.insert(c);
 		c->start();
 	}
 
 	void connection_manager::stop(const std::shared_ptr<connection>& c)
 	{
-		LOG_NFO() << "connection_manager::stop(this:" << this << ", c:" << c.get() << ":" << c.use_count() << ")";
+		LOG_DBG2() << "connection_manager::stop(this:" << this << ", c:" << c.get() << ":" << c.use_count() << ")";
 		m_connections.erase(c);
 		c->stop();
 	}
 
 	void connection_manager::stop_all()
 	{
-		LOG_NFO() << "connection_manager::stop_all(this:" << this << ")";
+		LOG_DBG2() << "connection_manager::stop_all(this:" << this << ")";
 		std::unordered_set<std::shared_ptr<connection>> local;
 		std::swap(local, m_connections);
 		for (auto& c : local) {
-			LOG_NFO() << "connection_manager::stop_all(this:" << this << ") -- c:" << c.get() << ":" << c.use_count();
+			LOG_DBG2() << "connection_manager::stop_all(this:" << this << ") -- c:" << c.get() << ":" << c.use_count();
 			c->stop();
 		}
 	}
@@ -209,7 +209,7 @@ namespace web { namespace asio {
 		, m_acceptor { m_service }
 		, m_manager { onconnection }
 	{
-		LOG_NFO() << "service::service(this:" << this << ")";
+		LOG_DBG2() << "service::service(this:" << this << ")";
 		m_signals.add(SIGINT);
 		m_signals.add(SIGTERM);
 #if defined(SIGQUIT)
@@ -227,12 +227,12 @@ namespace web { namespace asio {
 	}
 
 	service::~service() {
-		LOG_NFO() << "service::~service(this:" << this << ")";
+		LOG_DBG2() << "service::~service(this:" << this << ")";
 	}
 
 	endpoint service::setup(unsigned short port)
 	{
-		LOG_NFO() << "service::setup(this:" << this << ", port:" << port << ")";
+		LOG_DBG2() << "service::setup(this:" << this << ", port:" << port << ")";
 
 		ip::tcp::resolver resolver(m_service);
 		ip::tcp::endpoint endpoint(ip::tcp::v4(), port);
@@ -249,10 +249,10 @@ namespace web { namespace asio {
 	void service::next_accept()
 	{
 		auto conn = std::make_shared<connection>(m_service, m_manager);
-		LOG_NFO() << "service::next_accept(this:" << this << ") -- conn:" << conn.get() << ":" << conn.use_count();
+		LOG_DBG2() << "service::next_accept(this:" << this << ") -- conn:" << conn.get() << ":" << conn.use_count();
 		m_acceptor.async_accept(conn->socket(), [this, conn](error_code ec) {
 			if (!m_acceptor.is_open()) {
-				LOG_NFO() << "service::next_accept(this:" << this << ")::lambda -- acceptor closed";
+				LOG_DBG2() << "service::next_accept(this:" << this << ")::lambda -- acceptor closed";
 				return;
 			}
 
@@ -261,7 +261,7 @@ namespace web { namespace asio {
 				return;
 			}
 
-			LOG_NFO() << "service::next_accept(this:" << this << ")::lambda -- starting conn:" << conn.get() << ":" << conn.use_count();
+			LOG_DBG2() << "service::next_accept(this:" << this << ")::lambda -- starting conn:" << conn.get() << ":" << conn.use_count();
 			m_manager.start(conn);
 
 			next_accept();
