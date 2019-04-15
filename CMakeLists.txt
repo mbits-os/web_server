@@ -8,6 +8,7 @@ if (WEB_SERVER_WALL_FLAGS)
     set(ADDITIONAL_WALL_FLAGS
         /std:c++latest
         /permissive-
+        /D_CRT_SECURE_NO_WARNINGS
         /W4
         /w14242
         /w14254
