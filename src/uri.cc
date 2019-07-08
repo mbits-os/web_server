@@ -301,14 +301,14 @@ namespace web {
 		return out;
 	}
 
-	std::vector<std::pair<std::string, std::string>> uri::query_builder::list() const
+	std::vector<std::pair<std::string_view, std::string_view>> uri::query_builder::list() const
 	{
 		size_t length = 0;
 		for (auto& pair : m_values) {
 			length += pair.second.size();
 		}
 
-		std::vector<std::pair<std::string, std::string>> out;
+		std::vector<std::pair<std::string_view, std::string_view>> out;
 		out.reserve(length);
 
 		for (auto& pair : m_values) {
@@ -370,24 +370,32 @@ namespace web {
 	uri::uri(std::string_view ident)
 		: m_uri{ ident.data(), ident.length() }
 	{
+		ensure_fragment();
 	}
 	uri::uri(const std::string& ident)
 		: m_uri{ ident }
 	{
+		ensure_fragment();
 	}
 
 	uri::uri(std::string&& ident)
 		: m_uri{ std::move(ident) }
 	{
+		ensure_fragment();
 	}
 
 	uri::uri(const char* ident)
 		: m_uri{ ident }
 	{
+		ensure_fragment();
 	}
 
 	uri::uri(uri&& other)
 		: m_uri{ std::move(other.m_uri) }
+		, m_scheme{ other.m_scheme }
+		, m_path{ other.m_path }
+		, m_query{ other.m_query }
+		, m_part{ other.m_part }
 	{
 		other.invalidate_scheme();
 	}
@@ -395,12 +403,15 @@ namespace web {
 	uri& uri::operator=(uri&& other)
 	{
 		m_uri = std::move(other.m_uri);
+		m_scheme = other.m_scheme;
+		m_path = other.m_path;
+		m_query = other.m_query;
+		m_part = other.m_part;
 		other.invalidate_scheme();
-		invalidate_scheme();
 		return *this;
 	}
 
-	void uri::ensure_scheme() const
+	void uri::ensure_scheme()
 	{
 		if (m_scheme != ncalc)
 			return;
@@ -431,7 +442,7 @@ namespace web {
 		m_scheme = c - b;
 	}
 
-	void uri::ensure_path() const
+	void uri::ensure_path()
 	{
 		if (m_path != ncalc)
 			return;
@@ -462,7 +473,7 @@ namespace web {
 		}
 	}
 
-	void uri::ensure_query() const
+	void uri::ensure_query()
 	{
 		if (m_query != ncalc)
 			return;
@@ -484,7 +495,7 @@ namespace web {
 
 	}
 
-	void uri::ensure_fragment() const
+	void uri::ensure_fragment()
 	{
 		if (m_part != ncalc)
 			return;
@@ -505,8 +516,6 @@ namespace web {
 
 	bool uri::hierarchical() const
 	{
-		ensure_path();
-
 		if (m_scheme == npos)
 			return true;
 
@@ -519,20 +528,16 @@ namespace web {
 
 	bool uri::has_scheme() const
 	{
-		ensure_scheme();
 		return m_scheme != npos;
 	}
 
 	bool uri::is_scheme_relative() const
 	{
-		ensure_scheme();
 		return m_scheme == 0;
 	}
 
 	bool uri::has_authority() const
 	{
-		ensure_path();
-
 		// standard behaviour of browsers is
 		// that the non-scheme URIs start with path-only
 		if (m_scheme == npos)
@@ -577,31 +582,26 @@ namespace web {
 
 	std::string_view uri::path() const
 	{
-		ensure_query();
 		return substr(m_uri, m_path, m_query - m_path);
 	}
 
 	std::string_view uri::query() const
 	{
-		ensure_fragment();
 		return substr(m_uri, m_query, m_part - m_query);
 	}
 
 	std::string_view uri::resource() const
 	{
-		ensure_fragment();
 		return substr(m_uri, m_path, m_part - m_path);
 	}
 
 	std::string_view uri::fragment() const
 	{
-		ensure_fragment();
 		return substr(m_uri, m_part);
 	}
 
 	void uri::scheme(std::string_view value)
 	{
-		ensure_scheme();
 		if (m_scheme == npos)
 			return;
 
@@ -612,6 +612,7 @@ namespace web {
 			m_uri.insert(value.length(), 1, ':');
 		}
 		invalidate_scheme();
+		ensure_fragment();
 	}
 
 	void uri::authority(std::string_view value)
@@ -622,11 +623,11 @@ namespace web {
 		auto start = m_scheme + 2;
 		m_uri.replace(start, m_path - start, value.data(), value.length());
 		invalidate_path();
+		ensure_fragment();
 	}
 
 	void uri::path(std::string_view value)
 	{
-		ensure_query();
 		if (has_authority() && (value.empty() || value[0] != '/')) {
 			m_uri.replace(m_path, m_query - m_path, "/");
 			++m_path;
@@ -634,19 +635,20 @@ namespace web {
 		}
 		m_uri.replace(m_path, m_query - m_path, value.data(), value.length());
 		invalidate_path(); // query -> path due to having possibly taken the '/' branch and having ++m_path
+		ensure_fragment();
 	}
 
 	void uri::query(std::string_view value)
 	{
-		ensure_fragment();
 		m_uri.replace(m_query, m_part - m_query, value.data(), value.length());
 		invalidate_fragment();
+		ensure_fragment();
 	}
 
 	void uri::fragment(std::string_view value)
 	{
-		ensure_fragment();
 		m_uri.replace(m_part, m_uri.length() - m_part, value.data(), value.length());
+		ensure_fragment();
 	}
 
 	std::string_view remove_filename(std::string_view path)
@@ -710,7 +712,6 @@ namespace web {
 
 	uri uri::normal(uri tmp, auth_flag flag)
 	{
-		tmp.ensure_path();
 		if (tmp.m_scheme != npos) {
 			auto scheme = tolower(to_string(tmp.scheme()));
 			tmp.scheme(scheme);

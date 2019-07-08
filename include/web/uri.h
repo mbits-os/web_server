@@ -165,15 +165,15 @@ namespace web {
 		static constexpr size_type ncalc = static_cast<size_type>(-2);
 		static constexpr size_type npos = static_cast<size_type>(-1);
 
-		mutable size_type m_scheme = ncalc;
-		mutable size_type m_path = ncalc;
-		mutable size_type m_query = ncalc;
-		mutable size_type m_part = ncalc;
+		size_type m_scheme = ncalc;
+		size_type m_path = ncalc;
+		size_type m_query = ncalc;
+		size_type m_part = ncalc;
 
-		void ensure_scheme() const;
-		void ensure_path() const;
-		void ensure_query() const;
-		void ensure_fragment() const;
+		void ensure_scheme();
+		void ensure_path();
+		void ensure_query();
+		void ensure_fragment();
 
 		void invalidate_fragment()
 		{
@@ -329,7 +329,22 @@ namespace web {
 			Creates a list of all fields for individual access.
 			\result a vector of name/value pairs
 			*/
-			std::vector<std::pair<std::string, std::string>> list() const;
+			std::vector<std::pair<std::string_view, std::string_view>> list() const;
+
+			/**
+			Non-mutable view into all the fields.
+			\result a dictionary of parameters with each value appearing on
+					the parameter list.
+			*/
+			std::unordered_map<std::string, std::vector<std::string>> const& items() const & { return m_values; }
+
+			/**
+			Mutable view into all the fields. After call to this method, this
+			builder will be empty.
+			\result a dictionary of parameters with each value appearing on
+					the parameter list.
+			*/
+			std::unordered_map<std::string, std::vector<std::string>> items() && { return std::move(m_values); }
 
 			std::vector<std::string> const* find(std::string const& key) const {
 				auto it = m_values.find(key);
