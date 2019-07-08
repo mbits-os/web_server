@@ -67,6 +67,10 @@ namespace web {
 		Upgrade,
 		Via,
 		Warning,
+
+		// Cookie headers:
+		Cookie,
+		Set_Cookie
 	};
 
 	class header_key {

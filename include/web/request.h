@@ -31,6 +31,7 @@ namespace web {
 		friend class request_parser;
 		friend class server;
 	protected:
+		std::string m_remote;
 		std::string m_smethod;
 		web::method m_method;
 		web::uri m_uri;
@@ -41,6 +42,8 @@ namespace web {
 		web::server* m_server;
 	public:
 		request(web::server* srv) : m_server{ srv } {}
+		std::string const& remote() const { return m_remote; }
+		void remote(std::string const& remote) { m_remote = remote; }
 		web::server const* server() const { return m_server; }
 		const std::string& smethod() const { return m_smethod; }
 		web::method method() const { return m_method; }

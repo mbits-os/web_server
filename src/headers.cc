@@ -31,6 +31,7 @@ namespace web {
 			{ "content-md5", header::Content_MD5 },
 			{ "content-range", header::Content_Range },
 			{ "content-type", header::Content_Type },
+			{ "cookie", header::Cookie },
 			{ "date", header::Date },
 			{ "etag", header::ETag },
 			{ "expect", header::Expect },
@@ -52,6 +53,7 @@ namespace web {
 			{ "referer", header::Referer },
 			{ "retry-after", header::Retry_After },
 			{ "server", header::Server },
+			{ "set-cookie", header::Set_Cookie },
 			{ "te", header::TE },
 			{ "trailer", header::Trailer },
 			{ "transfer-encoding", header::Transfer_Encoding },
@@ -99,6 +101,7 @@ namespace web {
 		case header::Content_MD5: return "Content-MD5";
 		case header::Content_Range: return "Content-Range";
 		case header::Content_Type: return "Content-Type";
+		case header::Cookie: return "Cookie";
 		case header::Date: return "Date";
 		case header::ETag: return "ETag";
 		case header::Expect: return "Expect";
@@ -120,6 +123,7 @@ namespace web {
 		case header::Referer: return "Referer";
 		case header::Retry_After: return "Retry-After";
 		case header::Server: return "Server";
+		case header::Set_Cookie: return "Set-Cookie";
 		case header::TE: return "TE";
 		case header::Trailer: return "Trailer";
 		case header::Transfer_Encoding: return "Transfer-Encoding";

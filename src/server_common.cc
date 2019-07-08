@@ -239,8 +239,13 @@ namespace web {
 					web::header_key::make("x-forwarded-for")
 				);
 
-				if (fwdd)
+				if (fwdd) {
 					rep.forwarded_for(*fwdd);
+					req.remote(*fwdd);
+				} else {
+					req.remote(remote.host);
+				}
+
 			}
 
 			try {
@@ -283,7 +288,8 @@ namespace web {
 			return;
 
 		req.m_payload.resize(length);
-		io.read(&req.m_payload[0], length);
+		if (length)
+			io.read(&req.m_payload[0], length);
 	}
 
 	void server::handle_connection(request& req, response& resp)
