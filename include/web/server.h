@@ -33,4 +33,4 @@ namespace web {
 		void run();
 		void on_connection(stream& io, bool secure);
 	};
-};
+}

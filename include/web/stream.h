@@ -41,7 +41,7 @@ namespace web {
 		size_t write(const void* data, size_t size)
 		{
 			size_t written = 0;
-			auto ptr = (const char*)data;
+			auto ptr = static_cast<const char*>(data);
 			while (size) {
 				auto chunk = size;
 				auto rest = BufferLength - m_write_ptr;
@@ -88,7 +88,7 @@ namespace web {
 		size_t read(void* data, size_t size)
 		{
 			size_t read_amount = 0;
-			auto ptr = (char*)data;
+			auto ptr = static_cast<char*>(data);
 			while (size) {
 				auto chunk = size;
 				auto rest = m_input.size() - m_read_ptr;
@@ -132,7 +132,7 @@ namespace web {
 		void flushed_write() { ostream<stream>::flushed(); }
 		void refill_read(const void* data, size_t length)
 		{
-			istream<stream>::refill((const char*)data, length);
+			istream<stream>::refill(static_cast<const char*>(data), length);
 		}
 
 		void shutdown()

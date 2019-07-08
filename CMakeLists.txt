@@ -110,7 +110,7 @@ else()
 SET(Boost_USE_STATIC_LIBS      OFF)
 SET(Boost_USE_STATIC_RUNTIME   OFF)
 endif()
-find_package(Boost REQUIRED system)
+find_package(Boost REQUIRED system date_time regex)
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 endif()
 

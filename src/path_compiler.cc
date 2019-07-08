@@ -98,7 +98,7 @@ namespace web {
 			auto& res = *it;
 			std::string m = res[0];
 			std::string escaped = res[1];
-			int offset = res.position();
+			size_t offset = res.position();
 			path += mask.substr(index, offset - index);
 			index = offset + res[0].length();
 
