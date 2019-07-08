@@ -10,6 +10,8 @@
 #include <web/uri.h>
 #include <web/path_compiler.h>
 
+#include <unordered_map>
+
 namespace web {
 	enum class method {
 		other,
@@ -61,5 +63,8 @@ namespace web {
 			return m_headers.find_front(key);
 		}
 		const std::string* host() const { return find_front(header::Host); }
+		const std::string* content_type() const { return find_front(header::Content_Type); }
+
+		std::unordered_map<std::string, std::string> post_form() const;
 	};
 }

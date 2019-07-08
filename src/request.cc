@@ -52,4 +52,22 @@ namespace web {
 		}
 		return nullptr;
 	}
+
+	std::unordered_map<std::string, std::string> request::post_form() const {
+		std::unordered_map<std::string, std::string> map;
+		auto* ct = content_type();
+		if (ct && *ct != "application/x-www-form-urlencoded")
+			return map;
+
+		auto const payload = std::string_view{ m_payload.data(), m_payload.size() };
+		auto items = uri::query_builder::parse(payload).items();
+		for (auto& [key, values] : items) {
+			if (values.empty())
+				map[std::move(key)];
+			else
+				map[std::move(key)] = std::move(values.front());
+		}
+
+		return map;
+	}
 }
